@@ -11,3 +11,11 @@
 
 An AWS-focused bridge between [SST](https://sst.dev) and
 [Pulumi Cloud](https://www.pulumi.com).
+
+```bash
+npm install --save-dev @yai/aws
+```
+
+# Changelog
+
+{@include ./CHANGELOG.md}

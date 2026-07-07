@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.6
+
+### Patch Changes
+
+- 6f2dd0c: doc update testing
+
 ## 0.0.5
 
 ### Patch Changes

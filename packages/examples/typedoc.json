@@ -1,0 +1,8 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "readme": "README.md",
+  "emit": "both",
+  "entryPoints": ["src/index.ts"],
+  "exclude": ["node_modules", "**/*.test.ts"],
+  "skipErrorChecking": true
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@yai/examples",
+  "version": "0.1.1",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "author": "Yevai Inc.",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && unbuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yai/npm.git"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "engines": {
+    "node": "24"
+  }
+}
