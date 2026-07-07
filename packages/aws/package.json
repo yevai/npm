@@ -42,9 +42,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/sst.d.ts",
-      "import": "./dist/sst.mjs",
-      "require": "./dist/sst.cjs"
+      "import": { "types": "./dist/sst.d.mts", "default": "./dist/sst.mjs" },
+      "require": { "types": "./dist/sst.d.cts", "default": "./dist/sst.cjs" }
     }
   },
   "engines": {
