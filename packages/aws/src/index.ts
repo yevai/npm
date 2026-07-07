@@ -3,7 +3,8 @@ import { execSync } from "child_process";
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
-const syncEnv = <T extends string>(key: T, getter: () => string): string => {
+/** Read an env var, computing and caching it when unset so child processes inherit it. */
+const syncEnv = (key: string, getter: () => string): string => {
   const value = process.env[key];
   if (value !== undefined) {
     return value;
@@ -20,48 +21,31 @@ const IS_PREVIEW = pulumi.runtime.isDryRun();
 const { PULUMI_WORK_DIR, SST_WORK_DIR } = process.env;
 
 if (!PULUMI_WORK_DIR) {
-  console.error("⚠️  Warning: PULUMI_WORK_DIR is not set. Defaulting to .cicd/pulumi");
+  console.error("Fatal: PULUMI_WORK_DIR is required but not set");
   process.exit(1);
 }
 if (!SST_WORK_DIR) {
-  console.error("⚠️  Warning: SST_WORK_DIR is not set. Defaulting to .");
+  console.error("Fatal: SST_WORK_DIR is required but not set");
   process.exit(1);
 }
 
-const EXCLUDED_ENV_KEYS = [
-  "PULUMI_CONFIG",
-  "PULUMI_CONFIG_SECRET_KEYS",
-  "STACK_REFERENCES", // This consumes STACK_REFERENCES
-  "PWD",
-  "CWD",
-  "OLDPWD",
-  "HOME",
-  "SHELL",
-  "TERM",
-  "TMPDIR",
-  "npm_config_prefix",
-  "npm_execpath",
-  "npm_node_execpath",
-  "npm_lifecycle_event",
-  "npm_lifecycle_script",
-  "npm_package_json",
-  "SHLVL",
-  "_",
-  "INIT_CWD",
-];
+// PULUMI_CONFIG, PULUMI_CONFIG_SECRET_KEYS, and STACK_REFERENCES are consumed via the
+// destructuring below; npm_* keys are excluded by prefix in the filter.
+const EXCLUDED_ENV_KEYS = new Set(["PWD", "CWD", "OLDPWD", "HOME", "SHELL", "TERM", "TMPDIR", "SHLVL", "_", "INIT_CWD"]);
 
 const { PULUMI_CONFIG, PULUMI_CONFIG_SECRET_KEYS, STACK_REFERENCES, ...rawEnv } = process.env;
 
+const parsedConfig = JSON.parse(PULUMI_CONFIG || "{}");
+
 function recursivelyParseJson(obj: any): any {
   if (typeof obj === "string") {
-    try {
-      const trimmed = obj.trim();
-      if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
-        const parsed = JSON.parse(obj);
-        return recursivelyParseJson(parsed);
+    const trimmed = obj.trim();
+    if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+      try {
+        return recursivelyParseJson(JSON.parse(obj));
+      } catch {
+        // Not valid JSON, keep original string
       }
-    } catch {
-      // Not valid JSON, keep original string
     }
     return obj;
   }
@@ -77,35 +61,28 @@ function recursivelyParseJson(obj: any): any {
   return obj;
 }
 
-const otherEnv = Object.fromEntries(Object.entries(rawEnv).filter(([key]) => !EXCLUDED_ENV_KEYS.includes(key) && !key.startsWith("npm_")));
-
-const parsedConfig = JSON.parse(PULUMI_CONFIG || "{}");
-
-let auxiliaryConfig = {};
-
-try {
-  auxiliaryConfig = Object.fromEntries(
-    Object.entries(
-      JSON.parse(
-        execSync(`pulumi esc get ${PULUMI_ORG}/${PULUMI_PROJECT}/${PULUMI_STACK} --show-secrets --value json`, {
-          encoding: "utf-8",
-          stdio: ["ignore", "pipe", "ignore"],
-        }),
-      ).pulumiConfig,
-    ).map(([key, value]) => [`${PULUMI_PROJECT}:config:${key}`, value]),
-  );
-} catch (e) {
-  // We don't need to do anything for a malformed or non-existent config
-}
-
-const unifiedConfig = recursivelyParseJson({
-  ...parsedConfig,
-  ...auxiliaryConfig,
-});
-
 if (IS_PREVIEW) {
+  const otherEnv = Object.fromEntries(Object.entries(rawEnv).filter(([key]) => !EXCLUDED_ENV_KEYS.has(key) && !key.startsWith("npm_")));
+
+  // The ESC config is only needed to write the .cfg.json snapshot, so fetch it during preview only
+  let auxiliaryConfig: Record<string, unknown> = {};
+  try {
+    auxiliaryConfig = Object.fromEntries(
+      Object.entries(
+        JSON.parse(
+          execSync(`pulumi esc get ${PULUMI_ORG}/${PULUMI_PROJECT}/${PULUMI_STACK} --show-secrets --value json`, {
+            encoding: "utf-8",
+            stdio: ["ignore", "pipe", "ignore"],
+          }),
+        ).pulumiConfig,
+      ).map(([key, value]) => [`${PULUMI_PROJECT}:config:${key}`, value]),
+    );
+  } catch {
+    // A malformed or non-existent ESC config is fine; fall back to PULUMI_CONFIG only
+  }
+
   writeFileSync(`.env.${PULUMI_STACK}.env.json`, JSON.stringify(otherEnv, null, 2));
-  writeFileSync(`.env.${PULUMI_STACK}.cfg.json`, JSON.stringify(unifiedConfig, null, 2));
+  writeFileSync(`.env.${PULUMI_STACK}.cfg.json`, JSON.stringify(recursivelyParseJson({ ...parsedConfig, ...auxiliaryConfig }), null, 2));
 }
 
 function extractStringValues(obj: unknown): string[] {
@@ -124,23 +101,21 @@ function extractStringValues(obj: unknown): string[] {
   return values;
 }
 
-if (PULUMI_CONFIG_SECRET_KEYS && typeof PULUMI_CONFIG_SECRET_KEYS === "string") {
+if (PULUMI_CONFIG_SECRET_KEYS && process.env.GITHUB_ACTIONS === "true") {
   const secretKeys: string[] = JSON.parse(PULUMI_CONFIG_SECRET_KEYS);
   const allSecretValues: string[] = [];
 
   for (const shortKey of secretKeys) {
     const [namespace, ...rest] = shortKey.split(":");
-    const keyName = rest.join(":");
-    const configKey = `${namespace}:config:${keyName}`;
+    const configKey = `${namespace}:config:${rest.join(":")}`;
 
-    let value = parsedConfig[shortKey] ?? parsedConfig[configKey];
+    const value = parsedConfig[shortKey] ?? parsedConfig[configKey];
 
     if (value === undefined || value === "") continue;
 
     if (typeof value === "string" && (value.startsWith("{") || value.startsWith("["))) {
       try {
-        const parsed = JSON.parse(value);
-        allSecretValues.push(...extractStringValues(parsed));
+        allSecretValues.push(...extractStringValues(JSON.parse(value)));
       } catch {
         allSecretValues.push(value);
       }
@@ -151,39 +126,29 @@ if (PULUMI_CONFIG_SECRET_KEYS && typeof PULUMI_CONFIG_SECRET_KEYS === "string") 
 
   const uniqueValues = [...new Set(allSecretValues)].filter((v) => v.length > 0);
 
-  if (uniqueValues.length > 0 && process.env.GITHUB_ACTIONS === "true") {
+  if (uniqueValues.length > 0) {
     writeFileSync(`.env.${PULUMI_STACK}.mask.txt`, uniqueValues.join("\n"));
   }
 }
 
-const STACK_REF_KEYS = [...new Set([`${PULUMI_PROJECT}/${PULUMI_STACK}`].concat(STACK_REFERENCES ? STACK_REFERENCES.split(",") : []))];
+// Stack references must be registered during both preview and up so they persist in stack state
+const STACK_REF_KEYS = [...new Set([`${PULUMI_PROJECT}/${PULUMI_STACK}`, ...(STACK_REFERENCES ? STACK_REFERENCES.split(",") : [])])];
 const STACK_REFS_ACTUAL = STACK_REF_KEYS.map((ref) => new pulumi.StackReference(`${PULUMI_ORG}/${ref}`));
 
 if (IS_PREVIEW) {
-  pulumi
-    .all(STACK_REFS_ACTUAL.map((ref) => ref.outputs))
-    .apply((outputArray) => {
-      return STACK_REF_KEYS.reduce(
-        (acc, refName, index) => {
-          acc[refName] = outputArray[index];
-          return acc;
-        },
-        {} as Record<string, Record<string, any>>,
-      );
-    })
-    .apply((outputs) => {
-      writeFileSync(`.env.${PULUMI_STACK}.refs.json`, JSON.stringify(outputs, null, 2));
-    });
-  const selfRef = STACK_REFS_ACTUAL[0]; // This variable is necessary for pulumi resolution
-  selfRef.outputs.apply((outputs) => {
-    writeFileSync(`.env.${PULUMI_STACK}.out.json`, JSON.stringify(outputs, null, 2));
+  const selfRef = STACK_REFS_ACTUAL[0];
+  pulumi.all(STACK_REFS_ACTUAL.map((ref) => ref.outputs)).apply((outputArray) => {
+    const refOutputs = Object.fromEntries(STACK_REF_KEYS.map((refName, index) => [refName, outputArray[index]]));
+    writeFileSync(`.env.${PULUMI_STACK}.refs.json`, JSON.stringify(refOutputs, null, 2));
+    writeFileSync(`.env.${PULUMI_STACK}.out.json`, JSON.stringify(outputArray[0], null, 2));
   });
+  // Re-export this stack's own outputs so they survive the preview run
   module.exports = selfRef.outputs.apply((outputs) => ({
     ...module.exports,
     ...Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, pulumi.output(value)])),
   }));
 } else {
-  const outputsPath = join(SST_WORK_DIR!, ".sst/outputs.json");
+  const outputsPath = join(SST_WORK_DIR, ".sst/outputs.json");
   const newOutputs = JSON.parse(readFileSync(outputsPath, "utf-8")) as Record<string, any>;
   for (const [key, value] of Object.entries(newOutputs)) {
     module.exports[key] = pulumi.output(value);

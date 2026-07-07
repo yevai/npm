@@ -61,13 +61,33 @@
     "list": "allow",
     "lsp": "allow",
   },
-  "default_agent": "ask",
-  "model": "openrouter/z-ai/glm-5.2",
-  "small_model": "openrouter/google/gemini-3.5-flash",
+  "agent": {
+    "general": {
+      "model": "openrouter/z-ai/glm-5.2",
+    },
+    "explore": {
+      "model": "openrouter/moonshotai/kimi-k2.7-code",
+    },
+    "summary": {
+      "model": "google/gemini-3.5-flash",
+    },
+    "plan": {
+      "model": "anthropic/claude-sonnet-5",
+    },
+  },
+  "subagent_model": "openrouter/z-ai/glm-5.2",
+  "default_agent": "code",
+  "model": "openrouter/moonshotai/kimi-k2.7-code",
+  "small_model": "openrouter/z-ai/glm-5.2",
   "provider": {
     "openrouter": {
       "models": {
         "z-ai/glm-5.2": {
+          "limit": {
+            "context": 1048576,
+            "input": 0,
+            "output": 32768,
+          },
           "options": {
             "provider": {
               "only": ["parasail/fp4"],
@@ -75,20 +95,59 @@
             },
           },
         },
-        "mistralai/codestral-embed-2505": {
+        "moonshotai/kimi-k2.7-code": {
+          "limit": {
+            "context": 262144,
+            "input": 0,
+            "output": 16384,
+          },
           "options": {
             "provider": {
-              "only": ["mistral"],
+              "only": ["together"],
               "allow_fallbacks": false,
             },
           },
         },
         "google/gemini-3.5-flash": {
+          "limit": {
+            "context": 1048576,
+            "input": 0,
+            "output": 65536,
+          },
           "options": {
             "provider": {
               "only": ["google-ai-studio"],
               "allow_fallbacks": false,
             },
+          },
+        },
+      },
+    },
+    "google-ai-studio": {
+      "models": {
+        "gemini-3.5-flash": {
+          "limit": {
+            "context": 1048576,
+            "input": 0,
+            "output": 65536,
+          },
+        },
+      },
+    },
+    "anthropic": {
+      "models": {
+        "claude-fable-5": {
+          "limit": {
+            "context": 1000000,
+            "input": 0,
+            "output": 128000,
+          },
+        },
+        "claude-sonnet-5": {
+          "limit": {
+            "context": 1000000,
+            "input": 0,
+            "output": 128000,
           },
         },
       },

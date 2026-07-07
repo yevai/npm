@@ -1,17 +1,24 @@
 #!/usr/bin/env node
 import { execSync, spawn } from "child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "fs";
-import { load } from "js-yaml";
+import {
+  appendFileSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-type CliCommands = "deploy" | "preview" | "dev" | "refresh" | "destroy" | "generate" | "validate" | "bash";
-type DxCommands = "generate" | "validate";
-type InfraCommands = Exclude<CliCommands, DxCommands>;
+type InfraCommands = "deploy" | "preview" | "dev" | "refresh" | "destroy" | "bash";
 
 let ephemeralPulumiDir = false;
-let hasPulumiYaml = false;
 
 const COLORS = {
   reset: "\x1b[0m",
@@ -106,6 +113,17 @@ const getCliCommandMode = (command: string): boolean => {
   return false;
 };
 
+/** Set an env var, logging when it is introduced and warning when an existing value changes. */
+const setEnv = (key: string, value: string, source: string): void => {
+  const current = process.env[key];
+  if (current === undefined) {
+    info(`Set ${key}=${value} from ${source}.`);
+  } else if (current !== value) {
+    warn(`⚠ Overriding ${key} from ${current} to ${value}`);
+  }
+  process.env[key] = value;
+};
+
 console.info(""); // Init pipe
 
 if (!process.env.SST_WORK_DIR) {
@@ -140,78 +158,58 @@ if (!process.env.PULUMI_PROJECT) {
 // Usage overload: yaws <project>/<stack> [InfraCommands | DxCommands]
 const args = process.argv.slice(2);
 
-if (args.length !== 2 && args.length > 0) {
+if (args.length !== 0 && args.length !== 2) {
   error(`Expected zero or two arguments, received ${args.length}`);
   error(`Usage: yaws <project>/<stack> (also a valid ESC env) <command>`);
   process.exit(1);
 }
 
-process.env.PULUMI_COMMAND = args[1];
+if (args.length === 2) {
+  process.env.PULUMI_COMMAND = args[1];
+  const [pulumiStack, pulumiProject, pulumiOrganization] = args[0].split("/").reverse();
+  if (pulumiStack) {
+    setEnv("PULUMI_STACK", pulumiStack, "args");
+  }
+  if (pulumiProject) {
+    setEnv("PULUMI_PROJECT", pulumiProject, "args");
+  }
+  if (pulumiOrganization) {
+    setEnv("PULUMI_ORGANIZATION", pulumiOrganization, "args");
+    process.env.PULUMI_ORG = pulumiOrganization;
+  }
+}
+
+if (!process.env.PULUMI_COMMAND) {
+  error("PULUMI_COMMAND is required but not set (pass a command argument or set the env var)");
+  error(`Usage: yaws <project>/<stack> (also a valid ESC env) <command>`);
+  process.exit(1);
+}
 
 if (!getCliCommandMode(process.env.PULUMI_COMMAND)) {
   getInfraCommandMode(process.env.PULUMI_COMMAND);
 }
 
-if (!args[0].includes("/")) {
-  if (!process.env.PULUMI_STACK) {
-    process.env.PULUMI_STACK = args[0];
-    info(`Set PULUMI_STACK=${process.env.PULUMI_STACK} from args.`);
-  } else {
-    warn(`⚠ Overriding PULUMI_STACK from ${process.env.PULUMI_STACK} to ${args[0]}`);
-    process.env.PULUMI_STACK = args[0];
-  }
-} else {
-  const [pulumiStack, pulumiProject, pulumiOrganization] = args[0].split("/").reverse();
-  if (pulumiStack) {
-    if (!process.env.PULUMI_STACK) {
-      process.env.PULUMI_STACK = pulumiStack;
-      info(`Set PULUMI_STACK=${process.env.PULUMI_STACK} from args.`);
-    } else {
-      warn(`⚠ Overriding PULUMI_STACK from ${process.env.PULUMI_STACK} to ${pulumiStack}`);
-      process.env.PULUMI_STACK = pulumiStack;
-    }
-  }
-  if (pulumiProject) {
-    if (!process.env.PULUMI_PROJECT) {
-      process.env.PULUMI_PROJECT = pulumiProject;
-      info(`Set PULUMI_PROJECT=${process.env.PULUMI_PROJECT} from args.`);
-    } else {
-      warn(`⚠ Overriding PULUMI_PROJECT from ${process.env.PULUMI_PROJECT} to ${pulumiProject}`);
-      process.env.PULUMI_PROJECT = pulumiProject;
-    }
-  }
-  if (pulumiOrganization) {
-    if (!process.env.PULUMI_ORGANIZATION) {
-      process.env.PULUMI_ORGANIZATION = pulumiOrganization;
-      process.env.PULUMI_ORG = pulumiOrganization;
-      info(`Set PULUMI_ORGANIZATION=${process.env.PULUMI_ORGANIZATION} from args.`);
-    } else {
-      warn(`⚠ Overriding PULUMI_ORGANIZATION from ${process.env.PULUMI_ORGANIZATION} to ${pulumiOrganization}`);
-      process.env.PULUMI_ORGANIZATION = pulumiOrganization;
-      process.env.PULUMI_ORG = pulumiOrganization;
-    }
-  }
-}
-
 if (!process.env.PULUMI_WORK_DIR) {
-  if (process.env.RUNNER_TEMP) {
-    process.env.PULUMI_WORK_DIR = mkdtempSync(join(process.env.RUNNER_TEMP, "pulumi-"));
-    ephemeralPulumiDir = true;
-  } else {
-    process.env.PULUMI_WORK_DIR = mkdtempSync(join(tmpdir(), "pulumi-"));
-    ephemeralPulumiDir = true;
-  }
-} else {
-  const pulumiYamlPath = join(process.env.PULUMI_WORK_DIR, "Pulumi.yaml");
-  if (existsSync(pulumiYamlPath)) {
-    hasPulumiYaml = true;
-  } else {
-    console.error(`Fatal: Pulumi.yaml not found in PULUMI_WORK_DIR: ${process.env.PULUMI_WORK_DIR}`);
-    process.exit(1);
-  }
+  process.env.PULUMI_WORK_DIR = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), "pulumi-"));
+  ephemeralPulumiDir = true;
+} else if (!existsSync(join(process.env.PULUMI_WORK_DIR, "Pulumi.yaml"))) {
+  error(`Fatal: Pulumi.yaml not found in PULUMI_WORK_DIR: ${process.env.PULUMI_WORK_DIR}`);
+  process.exit(1);
 }
 
-const generateZodTypesFromJson = (typeName: string, inputValuesPath: string) => {
+const PULUMI_WORK_DIR = process.env.PULUMI_WORK_DIR!;
+
+const cleanupEphemeralWorkDir = (): void => {
+  if (!ephemeralPulumiDir) return;
+  try {
+    rmSync(PULUMI_WORK_DIR, { recursive: true, force: true });
+    info(`✓ Cleaned up ${PULUMI_WORK_DIR}`, true);
+  } catch (e) {
+    warn(`⚠ Failed to clean up Pulumi work dir: ${e}`);
+  }
+};
+
+const generateZodTypesFromJson = (typeName: string, inputValuesPath: string): void => {
   const typesFolder = join(SST_WORK_DIR, "types");
   if (!existsSync(typesFolder)) {
     try {
@@ -234,11 +232,11 @@ const generateZodTypesFromJson = (typeName: string, inputValuesPath: string) => 
     }
   }
   // Unlike zod, this is codegen. Always pin code generator versions.
-  const typesCommand = `npx --yes json-to-zod@1.1.2 -s ${inputValuesPath} -t ${outputTypePath} -n ${typeName} && echo '\nexport type ${typeName} = z.infer<typeof ${typeName}>;\n' >> ${outputTypePath}`;
-  execSync(typesCommand, {
+  execSync(`npx --yes json-to-zod@1.1.2 -s "${inputValuesPath}" -t "${outputTypePath}" -n ${typeName}`, {
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "ignore"],
   });
+  appendFileSync(outputTypePath, `\nexport type ${typeName} = z.infer<typeof ${typeName}>;\n`);
 
   // Generate module augmentation for typed CloudConfigV2
   if (typeName === "PulumiEscConfig") {
@@ -248,18 +246,15 @@ const generateZodTypesFromJson = (typeName: string, inputValuesPath: string) => 
     info(`Generated module augmentation: ${dtsPath}`, true);
 
     // Ensure sst.config.ts has the triple-slash reference
-    const sstConfigPath = join(SST_WORK_DIR, "sst.config.ts");
     const refDirective = '/// <reference path="./types/pulumi-esc.d.ts" />';
-    if (existsSync(sstConfigPath)) {
-      try {
-        execSync(`grep -qF '${refDirective}' ${sstConfigPath} || sed -i '' '1s|^|${refDirective}\\n|' ${sstConfigPath}`, {
-          encoding: "utf-8",
-          stdio: ["ignore", "pipe", "ignore"],
-        });
-        info(`Ensured triple-slash reference in sst.config.ts`, true);
-      } catch (e) {
-        warn(`Could not add triple-slash reference to sst.config.ts: ${e}`);
+    try {
+      const sstConfig = readFileSync(sstConfigPath, "utf-8");
+      if (!sstConfig.includes(refDirective)) {
+        writeFileSync(sstConfigPath, `${refDirective}\n${sstConfig}`);
       }
+      info(`Ensured triple-slash reference in sst.config.ts`, true);
+    } catch (e) {
+      warn(`Could not add triple-slash reference to sst.config.ts: ${e}`);
     }
   }
 
@@ -268,9 +263,10 @@ const generateZodTypesFromJson = (typeName: string, inputValuesPath: string) => 
 
 const allDependencies = Object.keys(packageJson.dependencies || {}).concat(Object.keys(packageJson.devDependencies || {}));
 
-const escReference = [process.env.PULUMI_ORG ?? process.env.PULUMI_ORGANIZATION, process.env.PULUMI_PROJECT, process.env.PULUMI_STACK]
-  .filter(Boolean)
-  .join("/");
+const escParts = [process.env.PULUMI_ORG ?? process.env.PULUMI_ORGANIZATION, process.env.PULUMI_PROJECT, process.env.PULUMI_STACK].filter(
+  Boolean,
+);
+const escReference = escParts.join("/");
 
 try {
   const { environmentVariables, pulumiConfig } = JSON.parse(
@@ -281,36 +277,34 @@ try {
   );
   const userHasZod = allDependencies.includes("zod");
   let cliExecutionErrors = false;
+
   if (process.env.CLI_COMMAND_MODE === "generate") {
-    const envValuesPath = join(process.env.PULUMI_WORK_DIR, "pulumiEnvironmentValues.json");
-    const escConfigValuesPath = join(process.env.PULUMI_WORK_DIR, "pulumiConfigValues.json");
+    const envValuesPath = join(PULUMI_WORK_DIR, "pulumiEnvironmentValues.json");
+    const escConfigValuesPath = join(PULUMI_WORK_DIR, "pulumiConfigValues.json");
 
     try {
       if (environmentVariables) {
-        const typeName = "PulumiEscEnvironment";
         writeFileSync(envValuesPath, JSON.stringify(environmentVariables, null, 2));
         info(`Created ${envValuesPath} with ${Object.keys(environmentVariables).length} variables`);
-        generateZodTypesFromJson(typeName, envValuesPath);
+        generateZodTypesFromJson("PulumiEscEnvironment", envValuesPath);
       }
       if (pulumiConfig) {
-        const typeName = "PulumiEscConfig";
         writeFileSync(escConfigValuesPath, JSON.stringify(pulumiConfig, null, 2));
         info(`Created ${escConfigValuesPath} with ${Object.keys(pulumiConfig).length} top-level variables`);
-        generateZodTypesFromJson(typeName, escConfigValuesPath);
+        generateZodTypesFromJson("PulumiEscConfig", escConfigValuesPath);
       }
     } catch (e) {
       cliExecutionErrors = true;
       error(`Failed to create ESC types for ${escReference}`);
       error(e instanceof Error ? e.message : String(e));
     } finally {
-      if (existsSync(envValuesPath)) {
-        unlinkSync(envValuesPath);
-        info(`Unlinked ${envValuesPath}`);
+      for (const tempPath of [envValuesPath, escConfigValuesPath]) {
+        if (existsSync(tempPath)) {
+          unlinkSync(tempPath);
+          info(`Unlinked ${tempPath}`);
+        }
       }
-      if (existsSync(escConfigValuesPath)) {
-        unlinkSync(escConfigValuesPath);
-        info(`Unlinked ${escConfigValuesPath}`);
-      }
+      cleanupEphemeralWorkDir();
     }
     if (!userHasZod) {
       warn(`"npm install zod --save-dev" is recommended to avoid type errors.`);
@@ -333,7 +327,7 @@ try {
       { schema: hasCfgSchema, data: !!pulumiConfig, label: "pulumiConfig", file: "PulumiEscConfig.ts" },
     ];
 
-    const escUrl = `https://app.pulumi.com/${process.env.PULUMI_ORGANIZATION}/esc/${escReference}`;
+    const escUrl = `https://app.pulumi.com/${escParts[0]}/esc/${process.env.PULUMI_PROJECT}/${process.env.PULUMI_STACK}`;
     for (const { schema, data, label, file } of pairs) {
       if (schema !== data) {
         error(
@@ -341,26 +335,30 @@ try {
             ? `./types/${file} exists but "${label}" is missing from ${escUrl}`
             : `./types/${file} is missing but "${label}" exists in ${escUrl}`,
         );
+        cleanupEphemeralWorkDir();
         process.exit(1);
       }
     }
 
     if (!hasEnvSchema && !hasCfgSchema) {
       warn(`Pulumi ESC is not configured in this project. Skipping`);
+      cleanupEphemeralWorkDir();
       process.exit(0);
     }
-    const WORK = process.env.PULUMI_WORK_DIR!;
+
     const tempFiles: string[] = [];
+    const workNodeModules = join(PULUMI_WORK_DIR, "node_modules");
+    let createdNodeModules = false;
 
     try {
       if (userHasZod) {
-        const nodeModulesLink = join(WORK, "node_modules");
-        if (!existsSync(nodeModulesLink)) {
-          symlinkSync(join(SST_WORK_DIR, "node_modules"), nodeModulesLink, "dir");
+        if (!existsSync(workNodeModules)) {
+          symlinkSync(join(SST_WORK_DIR, "node_modules"), workNodeModules, "dir");
+          createdNodeModules = true;
           info("Zod found, node_modules linked", true);
         }
       } else {
-        const workPkgJson = join(WORK, "package.json");
+        const workPkgJson = join(PULUMI_WORK_DIR, "package.json");
         writeFileSync(
           workPkgJson,
           JSON.stringify(
@@ -376,56 +374,57 @@ try {
         );
         tempFiles.push(workPkgJson);
         execSync("npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund --prefer-offline zod", {
-          cwd: WORK,
+          cwd: PULUMI_WORK_DIR,
           encoding: "utf-8",
           stdio: ["ignore", "pipe", "ignore"],
         });
-        if (!userHasZod) {
-          warn(`"npm install zod --save-dev" is recommended to avoid type errors.`);
-        }
+        createdNodeModules = true;
+        warn(`"npm install zod --save-dev" is recommended to avoid type errors.`);
       }
       if (environmentVariables) {
-        const p = join(WORK, "env-data.json");
-        writeFileSync(p, JSON.stringify(environmentVariables, null, 2));
-        tempFiles.push(p);
+        const dataPath = join(PULUMI_WORK_DIR, "env-data.json");
+        writeFileSync(dataPath, JSON.stringify(environmentVariables, null, 2));
+        tempFiles.push(dataPath);
       }
       if (pulumiConfig) {
-        const p = join(WORK, "config-data.json");
-        writeFileSync(p, JSON.stringify(pulumiConfig, null, 2));
-        tempFiles.push(p);
+        const dataPath = join(PULUMI_WORK_DIR, "config-data.json");
+        writeFileSync(dataPath, JSON.stringify(pulumiConfig, null, 2));
+        tempFiles.push(dataPath);
       }
-      if (existsSync(envSchemaPath)) {
-        const dest = join(WORK, "PulumiEscEnvironment.ts");
+      if (hasEnvSchema) {
+        const dest = join(PULUMI_WORK_DIR, "PulumiEscEnvironment.ts");
         copyFileSync(envSchemaPath, dest);
         tempFiles.push(dest);
       }
-      if (existsSync(cfgSchemaPath)) {
-        const dest = join(WORK, "PulumiEscConfig.ts");
+      if (hasCfgSchema) {
+        const dest = join(PULUMI_WORK_DIR, "PulumiEscConfig.ts");
         copyFileSync(cfgSchemaPath, dest);
         tempFiles.push(dest);
       }
-      const harnessPath = join(WORK, "validate-esc.ts");
+      const harnessPath = join(PULUMI_WORK_DIR, "validate-esc.ts");
       writeFileSync(harnessPath, VALIDATE_HARNESS_SCRIPT);
       tempFiles.push(harnessPath);
 
       execSync("npx --yes tsx@4.21.0 validate-esc.ts", {
-        cwd: WORK,
+        cwd: PULUMI_WORK_DIR,
         encoding: "utf-8",
         stdio: "inherit",
       });
 
       info(`✓ ESC validation passed for ${escReference}`);
-    } catch (e) {
+    } catch {
       cliExecutionErrors = true;
       error(`ESC validation failed for ${escReference}`);
     } finally {
-      if (!ephemeralPulumiDir) {
-        for (const f of tempFiles) {
-          if (existsSync(f)) unlinkSync(f);
+      if (ephemeralPulumiDir) {
+        cleanupEphemeralWorkDir();
+      } else {
+        for (const tempPath of tempFiles) {
+          if (existsSync(tempPath)) unlinkSync(tempPath);
         }
-        const nodeModules = join(WORK, "node_modules");
-        if (existsSync(nodeModules)) {
-          rmSync(nodeModules, { recursive: true, force: true });
+        // Only remove node_modules this run created; never a pre-existing one
+        if (createdNodeModules && existsSync(workNodeModules)) {
+          rmSync(workNodeModules, { recursive: true, force: true });
         }
       }
     }
@@ -440,80 +439,23 @@ try {
     info(`Added ESC Environment Variable: ${key}`, true);
   });
   process.env = { ...process.env, ...otherEnv };
-  process.env.AWS_CONFIG_FILE = "/dev/null";
-  delete process.env.AWS_PROFILE;
-  delete process.env.AWS_DEFAULT_PROFILE;
 
   if (PULUMI_PROVIDERS) {
-    if (!process.env.PULUMI_PROVIDERS) {
-      process.env.PULUMI_PROVIDERS = PULUMI_PROVIDERS;
-      info(`Set PULUMI_PROVIDERS=${process.env.PULUMI_PROVIDERS} from esc.`);
-    } else {
-      warn(`⚠ Overriding PULUMI_PROVIDERS from ${process.env.PULUMI_PROVIDERS} to ${PULUMI_PROVIDERS}`);
-      process.env.PULUMI_PROVIDERS = PULUMI_PROVIDERS;
-    }
+    setEnv("PULUMI_PROVIDERS", PULUMI_PROVIDERS, "esc");
   }
   if (STACK_REFERENCES) {
     if (!process.env.STACK_REFERENCES) {
-      process.env.STACK_REFERENCES = STACK_REFERENCES;
       STACK_REFERENCES.split(",").forEach((ref: string) => {
         info(`Added Stack Reference: ${ref}`, true);
       });
-    } else {
+    } else if (process.env.STACK_REFERENCES !== STACK_REFERENCES) {
       warn(`⚠ Overriding STACK_REFERENCES from ${process.env.STACK_REFERENCES} to ${STACK_REFERENCES}`);
-      process.env.STACK_REFERENCES = STACK_REFERENCES;
     }
+    process.env.STACK_REFERENCES = STACK_REFERENCES;
   }
 } catch (e) {
-  error(`Failed to retrieve ESC environment variables for ${args[0]}: ${e}`);
+  error(`Failed to retrieve ESC environment variables for ${escReference}: ${e}`);
 }
-
-const { PULUMI_STACK, PULUMI_PROVIDERS, GITHUB_ACTIONS } = process.env;
-
-if (!PULUMI_STACK) {
-  error("PULUMI_STACK is required but not set");
-  process.exit(1);
-}
-if (!process.env.PULUMI_COMMAND) {
-  error("PULUMI_COMMAND is required but not set");
-  process.exit(1);
-}
-
-if (ephemeralPulumiDir) {
-  if (!process.env.PULUMI_PROJECT) {
-    error("PULUMI_PROJECT could not be inferred (no package.json name). Set PULUMI_PROJECT env var.");
-    process.exit(1);
-  }
-  const programDescription = packageJson.description || "Pulumi program for " + process.env.PULUMI_PROJECT;
-  // Generate minimal Pulumi.yaml for ephemeral workspace
-  const minimalPulumiYaml = `name: ${process.env.PULUMI_PROJECT}
-description: ${programDescription}
-runtime:
-  name: nodejs
-  options:
-    typescript: true
-`;
-  writeFileSync(join(process.env.PULUMI_WORK_DIR!, "Pulumi.yaml"), minimalPulumiYaml);
-  const minimalPackageJson = JSON.stringify(
-    {
-      name: process.env.PULUMI_PROJECT,
-      description: programDescription,
-      version: "0.0.1",
-      private: true,
-      main: "index.ts",
-    },
-    null,
-    2,
-  );
-  writeFileSync(join(process.env.PULUMI_WORK_DIR!, "package.json"), minimalPackageJson);
-  hasPulumiYaml = true; // Now we have one
-}
-
-const COLOR_ENV = {
-  FORCE_COLOR: "1",
-  PULUMI_COLOR: "always",
-  CLICOLOR_FORCE: "1",
-};
 
 const sanitizeAwsEnv = (baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
   const cleaned = { ...baseEnv };
@@ -523,27 +465,59 @@ const sanitizeAwsEnv = (baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
   return cleaned;
 };
 
-const runWithEnv = (shellCommand: string, extraEnv: Record<string, string>): void => {
-  try {
-    execSync(shellCommand, {
-      encoding: "utf-8",
-      stdio: "inherit",
-      shell: "/bin/bash",
-      env: { ...sanitizeAwsEnv(process.env), ...extraEnv, ...COLOR_ENV },
-      cwd: SST_WORK_DIR,
-    });
-    info(`✓ SST completed successfully`, true);
-  } catch (e) {
-    error(`Failed to deploy SST: ${e}`);
-    process.exit(1);
-  }
+process.env = sanitizeAwsEnv(process.env);
+
+const { PULUMI_STACK, PULUMI_PROVIDERS } = process.env;
+
+if (!PULUMI_STACK) {
+  error("PULUMI_STACK is required but not set");
+  process.exit(1);
+}
+
+if (ephemeralPulumiDir) {
+  const programDescription = packageJson.description || "Pulumi program for " + process.env.PULUMI_PROJECT;
+  // Generate minimal Pulumi.yaml and package.json for the ephemeral workspace
+  const minimalPulumiYaml = `name: ${process.env.PULUMI_PROJECT}
+description: ${programDescription}
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+`;
+  writeFileSync(join(PULUMI_WORK_DIR, "Pulumi.yaml"), minimalPulumiYaml);
+  writeFileSync(
+    join(PULUMI_WORK_DIR, "package.json"),
+    JSON.stringify(
+      {
+        name: process.env.PULUMI_PROJECT,
+        description: programDescription,
+        version: "0.0.1",
+        private: true,
+        main: "index.ts",
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+const COLOR_ENV = {
+  FORCE_COLOR: "1",
+  PULUMI_COLOR: "always",
+  CLICOLOR_FORCE: "1",
 };
+
+const buildEnv = (extraEnv: Record<string, string>): NodeJS.ProcessEnv => ({
+  ...sanitizeAwsEnv(process.env),
+  ...extraEnv,
+  ...COLOR_ENV,
+});
 
 const spawnWithEnv = (shellCommand: string, extraEnv: Record<string, string>): Promise<void> => {
   return new Promise((resolve, reject) => {
     const child = spawn("/bin/bash", ["-c", shellCommand], {
       stdio: "inherit",
-      env: { ...sanitizeAwsEnv(process.env), ...extraEnv, ...COLOR_ENV },
+      env: buildEnv(extraEnv),
       cwd: SST_WORK_DIR,
     });
 
@@ -559,8 +533,17 @@ const spawnWithEnv = (shellCommand: string, extraEnv: Record<string, string>): P
   });
 };
 
+const runSstWithEnv = async (shellCommand: string, extraEnv: Record<string, string>): Promise<void> => {
+  try {
+    await spawnWithEnv(shellCommand, extraEnv);
+    info(`✓ SST completed successfully`, true);
+  } catch (e) {
+    throw new Error(`Failed to run SST: ${e}`);
+  }
+};
+
 const maskSecretsForGithubActions = (environment?: string): void => {
-  if (GITHUB_ACTIONS !== "true") {
+  if (process.env.GITHUB_ACTIONS !== "true") {
     return;
   }
 
@@ -572,7 +555,7 @@ const maskSecretsForGithubActions = (environment?: string): void => {
   }
 
   if (environment) {
-    const maskFilePath = join(process.env.PULUMI_WORK_DIR!, `.env.${environment}.mask.txt`);
+    const maskFilePath = join(PULUMI_WORK_DIR, `.env.${environment}.mask.txt`);
     if (existsSync(maskFilePath)) {
       try {
         const maskContent = readFileSync(maskFilePath, "utf-8");
@@ -596,12 +579,7 @@ const maskSecretsForGithubActions = (environment?: string): void => {
     maskSecretsForGithubActions(); // Initial mask for env vars (must do twice)
     const commandMode = getInfraCommandMode(process.env.PULUMI_COMMAND!);
 
-    const needsPulumiUp = commandMode === "deploy";
-    const needsPulumiRefresh = commandMode === "refresh";
-    const needsPulumiDestroy = commandMode === "destroy";
-    const isDevMode = commandMode === "dev";
-
-    const sstCommandMap: Record<InfraCommands, string | null> = {
+    const sstCommandMap: Record<InfraCommands, string> = {
       deploy: "deploy",
       preview: "diff",
       dev: "dev",
@@ -613,40 +591,14 @@ const maskSecretsForGithubActions = (environment?: string): void => {
     const sstCommand = sstCommandMap[commandMode];
 
     info(`Starting ${commandMode} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
+    info(`Working directory: ${PULUMI_WORK_DIR}`);
 
-    if (!process.env.PULUMI_PROJECT && hasPulumiYaml) {
-      const pulumiYamlPath = join(process.env.PULUMI_WORK_DIR!, "Pulumi.yaml");
-      try {
-        // TODO - check dependency versions in package.json in CWD and fire off warnings if incompatible. Sometimes, hard exit.
-        // TODO - add npx 'template init' (copies from repos and renames) for svc- and app-
-        const pulumiYamlContent = readFileSync(pulumiYamlPath, "utf-8");
-        const pulumiConfig = load(pulumiYamlContent) as Record<string, any>;
-        if (pulumiConfig.name) {
-          process.env.PULUMI_PROJECT = pulumiConfig.name;
-          info(`Inferred PULUMI_PROJECT="${pulumiConfig.name}" from Pulumi.yaml`, true);
-        } else {
-          error(`Pulumi.yaml does not contain a "name" field: ${pulumiYamlPath}`);
-          process.exit(1);
-        }
-      } catch (e) {
-        error(`Failed to read Pulumi.yaml at ${pulumiYamlPath}: ${e}`);
-        process.exit(1);
-      }
-    } else if (!process.env.PULUMI_PROJECT) {
-      error("PULUMI_PROJECT is required but not set");
-      process.exit(1);
-    }
+    copyFileSync(join(dirname(fileURLToPath(import.meta.url)), "pulumi-template.ts"), join(PULUMI_WORK_DIR, "index.ts"));
 
-    info(`Working directory: ${process.env.PULUMI_WORK_DIR}`);
-
-    copyFileSync(join(dirname(fileURLToPath(import.meta.url)), "pulumi-template.ts"), join(process.env.PULUMI_WORK_DIR!, "index.ts"));
-
-    const PULUMI_WORK_DIR = process.env.PULUMI_WORK_DIR!;
-    const nodeModulesTarget = join(SST_WORK_DIR, "node_modules");
     const nodeModulesLink = join(PULUMI_WORK_DIR, "node_modules");
 
     if (ephemeralPulumiDir && !existsSync(nodeModulesLink)) {
-      symlinkSync(nodeModulesTarget, nodeModulesLink, "dir");
+      symlinkSync(join(SST_WORK_DIR, "node_modules"), nodeModulesLink, "dir");
       info(`✓ Symlinked node_modules from ${SST_WORK_DIR}`, true);
     }
 
@@ -720,7 +672,7 @@ const maskSecretsForGithubActions = (environment?: string): void => {
     }
 
     if (process.env.CLI_COMMAND_MODE === "bash") {
-      const nvmScript = join(HOST_HOME || process.env.HOME || "", ".nvm", "nvm.sh");
+      const nvmScript = join(HOST_HOME || "", ".nvm", "nvm.sh");
       if (!existsSync(nvmScript)) {
         error(`NVM is required but was not found at ${nvmScript}.`);
         process.exit(1);
@@ -737,50 +689,43 @@ const maskSecretsForGithubActions = (environment?: string): void => {
       warn(` npx sst state remove <urn> --stage ${PULUMI_STACK}  [Remove resource]`);
       warn(` npx sst state edit --stage ${PULUMI_STACK}          [Interactive editor]`);
 
+      const nvmInitLines = [`export NVM_DIR="$HOME/.nvm"`, `[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"`];
+
       if (isZsh) {
-        writeFileSync(
-          join(PULUMI_WORK_DIR, ".zshrc"),
-          [`export NVM_DIR="$HOME/.nvm"`, `[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"`].join("\n"),
-        );
+        const zshrcPath = join(PULUMI_WORK_DIR, ".zshrc");
+        writeFileSync(zshrcPath, nvmInitLines.join("\n"));
         await spawnWithEnv(userShell, { ...envFromPulumi, ZDOTDIR: PULUMI_WORK_DIR });
-        if (existsSync(join(PULUMI_WORK_DIR, ".zshrc"))) unlinkSync(join(PULUMI_WORK_DIR, ".zshrc"));
+        if (existsSync(zshrcPath)) unlinkSync(zshrcPath);
       } else {
         const tmpInitPath = join(PULUMI_WORK_DIR, "bash-init.sh");
-        writeFileSync(
-          tmpInitPath,
-          [
-            `export BASH_SILENCE_DEPRECATION_WARNING=1`,
-            `export NVM_DIR="$HOME/.nvm"`,
-            `[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"`,
-          ].join("\n"),
-        );
+        writeFileSync(tmpInitPath, [`export BASH_SILENCE_DEPRECATION_WARNING=1`, ...nvmInitLines].join("\n"));
         await spawnWithEnv(`bash --init-file "${tmpInitPath}"`, envFromPulumi);
         if (existsSync(tmpInitPath)) unlinkSync(tmpInitPath);
       }
       return; // skip the normal SST/Pulumi flow
     }
 
-    if (isDevMode) {
+    if (commandMode === "dev") {
       await spawnWithEnv(`npx sst dev --stage ${PULUMI_STACK}`, envFromPulumi);
-    } else if (needsPulumiRefresh) {
+    } else if (commandMode === "refresh") {
       // First refresh SST state, then Pulumi state
-      runWithEnv(`npx sst refresh --stage ${PULUMI_STACK}`, envFromPulumi);
+      await runSstWithEnv(`npx sst refresh --stage ${PULUMI_STACK}`, envFromPulumi);
       await stack.refresh({
         color: "always",
         onOutput: (msg: string) => process.stdout.write(msg),
       });
-    } else if (needsPulumiDestroy) {
+    } else if (commandMode === "destroy") {
       // Run SST remove first, then Pulumi destroy
-      runWithEnv(`npx sst remove --stage ${PULUMI_STACK}`, envFromPulumi);
+      await runSstWithEnv(`npx sst remove --stage ${PULUMI_STACK}`, envFromPulumi);
       await stack.destroy({
         color: "always",
         onOutput: (msg: string) => process.stdout.write(msg),
       });
     } else {
       // deploy or preview
-      runWithEnv(`npx sst ${sstCommand} --stage ${PULUMI_STACK}`, envFromPulumi);
+      await runSstWithEnv(`npx sst ${sstCommand} --stage ${PULUMI_STACK}`, envFromPulumi);
 
-      if (needsPulumiUp) {
+      if (commandMode === "deploy") {
         await stack.up({
           color: "always",
           onOutput: (msg: string) => process.stdout.write(msg),
@@ -800,35 +745,27 @@ const maskSecretsForGithubActions = (environment?: string): void => {
     cleanup();
   }
   function cleanup(): void {
-    const PULUMI_WORK_DIR = process.env.PULUMI_WORK_DIR;
-    if (!PULUMI_WORK_DIR) return;
-
     if (ephemeralPulumiDir) {
-      try {
-        rmSync(PULUMI_WORK_DIR, { recursive: true, force: true });
-        info(`✓ Cleaned up ${PULUMI_WORK_DIR}`, true);
-      } catch (e) {
-        warn(`⚠ Failed to clean up Pulumi work dir: ${e}`);
-      }
-    } else {
-      // Clean up individual temp files if not ephemeral
-      const tempFiles = [
-        `.env.${PULUMI_STACK}.env.json`,
-        `.env.${PULUMI_STACK}.cfg.json`,
-        `.env.${PULUMI_STACK}.mask.txt`,
-        `.env.${PULUMI_STACK}.out.json`,
-        `.env.${PULUMI_STACK}.refs.json`,
-      ];
+      cleanupEphemeralWorkDir();
+      return;
+    }
+    // Clean up individual temp files when reusing a persistent work dir
+    const tempFiles = [
+      `.env.${PULUMI_STACK}.env.json`,
+      `.env.${PULUMI_STACK}.cfg.json`,
+      `.env.${PULUMI_STACK}.mask.txt`,
+      `.env.${PULUMI_STACK}.out.json`,
+      `.env.${PULUMI_STACK}.refs.json`,
+    ];
 
-      for (const file of tempFiles) {
-        const fullPath = join(PULUMI_WORK_DIR, file);
-        if (existsSync(fullPath)) {
-          try {
-            unlinkSync(fullPath);
-            warn(`Cleaned up ${file}`);
-          } catch {
-            // Ignore cleanup errors
-          }
+    for (const file of tempFiles) {
+      const fullPath = join(PULUMI_WORK_DIR, file);
+      if (existsSync(fullPath)) {
+        try {
+          unlinkSync(fullPath);
+          warn(`Cleaned up ${file}`);
+        } catch {
+          // Ignore cleanup errors
         }
       }
     }
