@@ -1,0 +1,90 @@
+{
+  "json.schemaDownload.trustedDomains": {
+    "turborepo.dev": true,
+    "app.kilo.ai": true,
+    "unpkg.com": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/node_modules/@yai/**": false,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.next/**": true,
+    "**/venv/**": true,
+    "**/.turbo/**": true,
+    "**/.kkilo/**": true,
+    "**/refs/**": true
+  },
+  "editor.formatOnSave": true,
+  "editor.insertSpaces": true,
+  "prettier.printWidth": 140,
+  "shellformat.flag": "-i 2 -bn -ci",
+  "editor.tabSize": 2,
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ts": "never",
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "yaml.schemas": {
+    "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.{yml,yaml}",
+    "https://json.schemastore.org/github-action.json": "action.{yml,yaml}"
+  },
+  "[typescriptreact]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ts": "never",
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml"
+  },
+  "files.associations": {
+    "*.ts": "typescript",
+    "*.tsx": "typescriptreact",
+    "*.sql": "sql",
+    "*.toml": "toml",
+    ".env*": "dotenv",
+    "*.yaml": "yaml",
+    "*.yml": "yaml",
+    "*.sh": "shellscript",
+    "*.bash": "shellscript",
+    "*.md": "markdown",
+    "*.mdx": "mdx",
+    ".prettierrc": "json",
+    ".npmrc": "properties",
+    "Dockerfile*": "dockerfile",
+    "*.hcl": "hcl",
+    "*.tf": "terraform",
+    "*.zsh": "shellscript",
+    ".zshenv": "shellscript",
+    ".zshrc": "shellscript",
+    ".zprofile": "shellscript"
+  },
+  "evenBetterToml.taplo.configFile.enabled": true,
+  "evenBetterToml.schema.enabled": true,
+  "evenBetterToml.schema.catalogs": ["https://www.schemastore.org/api/json/catalog.json"],
+  "terminal.integrated.shellIntegration.enabled": true,
+  "terminal.integrated.profiles.linux": {
+    "zsh": {
+      "path": "/home/linuxbrew/.linuxbrew/bin/zsh",
+      "args": []
+    }
+  },
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "kilo-code.new.autocomplete.model": "mercury-edit-2",
+  "kilo-code.new.autocomplete.provider": "inception",
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.suggest.autoImports": true
+}

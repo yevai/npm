@@ -1,0 +1,75 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "mcp": {
+    "tavily": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "tavily-mcp@0.2.3"
+      ],
+      "environment": {
+        "TAVILY_API_KEY": "{env:TAVILY_API_KEY}"
+      }
+    },
+    "context7": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "environment": {
+        "DEFAULT_MINIMUM_TOKENS": "{{DEFAULT_MINIMUM_TOKENS}}",
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+      }
+    }
+  },
+  "agent": {
+    "ask": {
+      "model": "google/gemini-3.5-flash"
+    }
+  },
+  "experimental": {
+    "batch_tool": true,
+    "openTelemetry": true,
+    "codebase_search": true
+  },
+  "small_model": "kilo/google/gemini-3.5-flash",
+  "model": "zai-coding-plan/glm-5.2",
+  "indexing": {
+    "enabled": true,
+    "provider": "openrouter",
+    "model": "qwen/qwen3-embedding-8b",
+    "openrouter": {
+      "specificProvider": "deepinfra"
+      // provide "apiKey" to use this
+    },
+    "dimension": 4096,
+    "vectorStore": "qdrant",
+    "qdrant": {
+      "url": "http://localhost:6333"
+    },
+    "searchMaxResults": 15,
+    "searchMinScore": 0.6,
+    "embeddingBatchSize": 45
+  },
+  "permission": {
+    "bash": "allow",
+    "tavily_tavily-search": {
+      "*": "allow"
+    },
+    "grep": "allow",
+    "glob": "allow",
+    "read": "allow",
+    "websearch": "deny",
+    "webfetch": "deny",
+    "todoread": "allow",
+    "todowrite": "allow",
+    "skill": "allow",
+    "task": "allow",
+    "list": "allow",
+    "lsp": "allow"
+  },
+  "default_agent": "ask",
+}

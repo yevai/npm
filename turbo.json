@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["*.ts", "*.json", "**/*.ts", "**/*.json", "pnpm-lock.yaml", ".env*", "!dist", "!turbo"],
+      "outputs": ["dist/**"],
+      "cache": true
+    },
+    "test": {
+      "inputs": ["**/*.json", "**/*.ts", "*.json", "*.ts", ".env*"],
+      "cache": true
+    }
+  }
+}

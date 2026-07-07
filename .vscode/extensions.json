@@ -1,0 +1,15 @@
+{
+  "recommendations": [
+    "mads-hartmann.bash-ide-vscode",
+    "kilocode.kilo-code",
+    "tamasfe.even-better-toml",
+    "christian-kohler.npm-intellisense",
+    "esbenp.prettier-vscode",
+    "mads-hartmann.bash-ide-vscode",
+    "foxundermoon.shell-format",
+    "pmneo.tsimporter",
+    "redhat.vscode-yaml",
+    "ms-python.python",
+    "kisstkondoros.vscode-codemetrics"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "strict": true,
+    "target": "ES2025",
+    "module": "esnext",
+    "skipLibCheck": true,
+    "esModuleInterop": true
+  },
+  "include": ["src/**/*.ts", "exports/**/*.ts"]
+}

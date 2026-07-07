@@ -1,0 +1,69 @@
+name: "Publish Packages"
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  publish:
+    if: >-
+      github.actor != 'github-actions[bot]' && github.event.pull_request.merged
+      == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    environment: prod
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      - name: Turbo Cache Setup
+        uses: rharkor/caching-for-turbo@v2.5.0
+        with:
+          cache-prefix: yevai-npm
+          provider: github
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Version Packages
+        run: pnpm changeset version
+
+      - name: Sync Lockfile
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build Packages
+        run: pnpm run build
+
+      - name: Commit Versioning
+        run: |
+          set -e
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "yevgen@yev.ai"
+          git add .
+          git commit -m "Versioning packages."
+
+      - name: Publish Packages
+        run: pnpm changeset publish
+
+      - name: Push Tags and Commit
+        run: |
+          set -e
+          git push --follow-tags

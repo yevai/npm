@@ -1,2 +1,3 @@
-# npm
-This repository publishes packages to our NPM org, yai.
+This repository is being prepared for release.
+
+Do not use these packages until v1 release.
