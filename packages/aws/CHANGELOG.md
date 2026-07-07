@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.4
+
+### Patch Changes
+
+- e614a45: [chore] CI hardening
+
 ## 0.0.3
 
 ### Patch Changes
