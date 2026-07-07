@@ -15,5 +15,5 @@ module.exports = {
   navigationLinks: {
     GitHub: "https://github.com/yevai/npm"
   },
-  tsconfig: "tsconfig.packages.json",
+  tsconfig: "tsconfig.json",
 };
