@@ -7,10 +7,6 @@
       "inputs": ["*.ts", "*.json", "**/*.ts", "**/*.json", "pnpm-lock.yaml", ".env*", "!dist", "!turbo"],
       "outputs": ["dist/**"],
       "cache": true
-    },
-    "test": {
-      "inputs": ["**/*.json", "**/*.ts", "*.json", "*.ts", ".env*"],
-      "cache": true
     }
   }
 }
