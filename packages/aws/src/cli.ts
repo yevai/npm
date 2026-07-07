@@ -185,9 +185,12 @@ if (!process.env.PULUMI_COMMAND) {
   process.exit(1);
 }
 
-if (!getCliCommandMode(process.env.PULUMI_COMMAND)) {
-  getInfraCommandMode(process.env.PULUMI_COMMAND);
-}
+// "bash" is both a CLI and infra command; "generate"/"validate" exit before the infra flow runs
+const INFRA_COMMAND_MODE: InfraCommands | null = getCliCommandMode(process.env.PULUMI_COMMAND)
+  ? process.env.PULUMI_COMMAND.toLowerCase() === "bash"
+    ? "bash"
+    : null
+  : getInfraCommandMode(process.env.PULUMI_COMMAND);
 
 if (!process.env.PULUMI_WORK_DIR) {
   process.env.PULUMI_WORK_DIR = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), "pulumi-"));
@@ -507,11 +510,13 @@ const COLOR_ENV = {
   CLICOLOR_FORCE: "1",
 };
 
-const buildEnv = (extraEnv: Record<string, string>): NodeJS.ProcessEnv => ({
-  ...sanitizeAwsEnv(process.env),
-  ...extraEnv,
-  ...COLOR_ENV,
-});
+// Sanitize the merged result so AWS profile vars from extraEnv (e.g. a restored env snapshot) are also stripped
+const buildEnv = (extraEnv: Record<string, string>): NodeJS.ProcessEnv =>
+  sanitizeAwsEnv({
+    ...process.env,
+    ...extraEnv,
+    ...COLOR_ENV,
+  });
 
 const spawnWithEnv = (shellCommand: string, extraEnv: Record<string, string>): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -542,7 +547,7 @@ const runSstWithEnv = async (shellCommand: string, extraEnv: Record<string, stri
   }
 };
 
-const maskSecretsForGithubActions = (environment?: string): void => {
+const maskSecretsForGithubActions = (): void => {
   if (process.env.GITHUB_ACTIONS !== "true") {
     return;
   }
@@ -553,31 +558,89 @@ const maskSecretsForGithubActions = (environment?: string): void => {
       console.log(`::add-mask::${value}`);
     }
   }
+};
 
-  if (environment) {
-    const maskFilePath = join(PULUMI_WORK_DIR, `.env.${environment}.mask.txt`);
-    if (existsSync(maskFilePath)) {
-      try {
-        const maskContent = readFileSync(maskFilePath, "utf-8");
-        const secrets = maskContent.split("\n").filter((line) => line.trim().length > 0);
-        for (const secret of secrets) {
-          console.log(`::add-mask::${secret}`);
-        }
-        info(`✓ Masked ${secrets.length} secrets`, true);
-      } catch (e) {
-        error(`Failed to process mask file ${maskFilePath}: ${e}`);
-      } finally {
-        unlinkSync(maskFilePath);
-        warn(`Unlinked ${maskFilePath}`);
-      }
+/** Collect maskable string values: long enough to be unambiguous, and not emails. */
+const extractStringValues = (obj: unknown): string[] => {
+  const values: string[] = [];
+
+  if (typeof obj === "string") {
+    if (obj.length > 10 && !obj.includes("@")) {
+      values.push(obj);
+    }
+  } else if (typeof obj === "object" && obj !== null) {
+    for (const value of Object.values(obj)) {
+      values.push(...extractStringValues(value));
     }
   }
+
+  return values;
+};
+
+/** Mask secret stack config values directly from the Automation API (replaces the preview-side mask.txt file). */
+const maskStackSecretsForGithubActions = async (stack: {
+  getAllConfig(): Promise<Record<string, { value: string; secret?: boolean }>>;
+}): Promise<void> => {
+  if (process.env.GITHUB_ACTIONS !== "true") {
+    return;
+  }
+
+  try {
+    const allConfig = await stack.getAllConfig();
+    const secretValues = new Set<string>();
+
+    for (const { value, secret } of Object.values(allConfig)) {
+      if (!secret || !value) continue;
+
+      if (value.startsWith("{") || value.startsWith("[")) {
+        try {
+          extractStringValues(JSON.parse(value)).forEach((v) => secretValues.add(v));
+          continue;
+        } catch {
+          // Not valid JSON, mask the raw string below
+        }
+      }
+      extractStringValues(value).forEach((v) => secretValues.add(v));
+    }
+
+    for (const secret of secretValues) {
+      console.log(`::add-mask::${secret}`);
+    }
+    info(`✓ Masked ${secretValues.size} secrets`, true);
+  } catch (e) {
+    error(`Failed to mask stack config secrets: ${e}`);
+  }
+};
+
+/** Resolve the environmentVariables of each ESC provider environment directly (replaces the preview-side env.json snapshot). */
+const resolveProviderEnvVars = (organization: string | undefined, providers: string[]): Record<string, string> => {
+  const merged: Record<string, string> = {};
+
+  for (const provider of providers) {
+    const envRef = provider.split("/").length >= 3 || !organization ? provider : `${organization}/${provider}`;
+    try {
+      const opened = JSON.parse(
+        execSync(`pulumi env open ${envRef} --format json`, {
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "ignore"],
+        }),
+      );
+      for (const [key, value] of Object.entries(opened.environmentVariables ?? {})) {
+        merged[key] = String(value);
+      }
+      info(`Resolved ESC Environment: ${envRef}`, true);
+    } catch (e) {
+      error(`Failed to open ESC environment ${envRef}: ${e}`);
+    }
+  }
+
+  return merged;
 };
 
 (async () => {
   try {
-    maskSecretsForGithubActions(); // Initial mask for env vars (must do twice)
-    const commandMode = getInfraCommandMode(process.env.PULUMI_COMMAND!);
+    maskSecretsForGithubActions(); // Mask sensitive env vars (config secrets are masked after stack selection)
+    const commandMode = INFRA_COMMAND_MODE!; // generate/validate exited before this point
 
     const sstCommandMap: Record<InfraCommands, string> = {
       deploy: "deploy",
@@ -625,13 +688,15 @@ const maskSecretsForGithubActions = (environment?: string): void => {
       alert("Environment variable PULUMI_PROVIDERS is not set. This is likely unintended.");
     }
 
+    // Mask secret config values before any engine output is streamed
+    await maskStackSecretsForGithubActions(stack);
+
+    // Preview must always run: it resolves the registered StackReferences against Pulumi Cloud,
+    // pulling in upstream stack output changes and persisting them in this stack's state.
     await stack.preview({
       color: "always",
       onOutput: (msg: string) => process.stdout.write(msg),
     });
-
-    maskSecretsForGithubActions(PULUMI_STACK);
-    const envJsonPath = join(PULUMI_WORK_DIR, `.env.${PULUMI_STACK}.env.json`);
 
     const {
       PULUMI_ACCESS_TOKEN: HOST_PULUMI_ACCESS_TOKEN,
@@ -643,33 +708,24 @@ const maskSecretsForGithubActions = (environment?: string): void => {
       USER: HOST_USER,
     } = process.env;
 
-    let envFromPulumi: Record<string, string> = {};
-
-    if (existsSync(envJsonPath)) {
-      try {
-        const envJson = readFileSync(envJsonPath, "utf-8");
-        envFromPulumi = {
-          ...JSON.parse(envJson),
-          ...{
-            HOST_PULUMI_ACCESS_TOKEN,
-            HOST_PULUMI_BACKEND_URL,
-            HOST_PULUMI_ORG,
-            HOST_PULUMI_ORGANIZATION,
-            HOST_HOME,
-            HOST_PATH,
-            HOST_USER,
-          },
-        };
-        info(`✓ Loaded environment`, true);
-      } catch (e) {
-        error(`Failed to load environment from ${envJsonPath}: ${e}`);
-      } finally {
-        unlinkSync(envJsonPath);
-        warn(`Unlinked ${envJsonPath}`);
-      }
-    } else {
-      warn(`⚠ Environment file not found: ${envJsonPath}`);
-    }
+    // Resolve provider ESC env vars directly instead of snapshotting them from inside the preview run
+    const hostEnv = {
+      HOST_PULUMI_ACCESS_TOKEN,
+      HOST_PULUMI_BACKEND_URL,
+      HOST_PULUMI_ORG,
+      HOST_PULUMI_ORGANIZATION,
+      HOST_HOME,
+      HOST_PATH,
+      HOST_USER,
+    };
+    const envFromPulumi: Record<string, string> = {
+      ...resolveProviderEnvVars(
+        HOST_PULUMI_ORG ?? HOST_PULUMI_ORGANIZATION,
+        PULUMI_PROVIDERS ? PULUMI_PROVIDERS.split(",").map((p) => p.trim()) : [],
+      ),
+      ...(Object.fromEntries(Object.entries(hostEnv).filter(([, v]) => v !== undefined)) as Record<string, string>),
+    };
+    info(`✓ Loaded environment`, true);
 
     if (process.env.CLI_COMMAND_MODE === "bash") {
       const nvmScript = join(HOST_HOME || "", ".nvm", "nvm.sh");
@@ -732,42 +788,11 @@ const maskSecretsForGithubActions = (environment?: string): void => {
         });
       }
     }
-    const outputPath = join(PULUMI_WORK_DIR, `.env.${PULUMI_STACK}.out.json`);
-    if (existsSync(outputPath)) {
-      unlinkSync(outputPath);
-      warn(`Unlinked ${outputPath}`);
-    }
     info(`✓ Finished ${commandMode} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
   } catch (e) {
     error(`Error during SST execution: ${e}`);
     process.exitCode = 1;
   } finally {
-    cleanup();
-  }
-  function cleanup(): void {
-    if (ephemeralPulumiDir) {
-      cleanupEphemeralWorkDir();
-      return;
-    }
-    // Clean up individual temp files when reusing a persistent work dir
-    const tempFiles = [
-      `.env.${PULUMI_STACK}.env.json`,
-      `.env.${PULUMI_STACK}.cfg.json`,
-      `.env.${PULUMI_STACK}.mask.txt`,
-      `.env.${PULUMI_STACK}.out.json`,
-      `.env.${PULUMI_STACK}.refs.json`,
-    ];
-
-    for (const file of tempFiles) {
-      const fullPath = join(PULUMI_WORK_DIR, file);
-      if (existsSync(fullPath)) {
-        try {
-          unlinkSync(fullPath);
-          warn(`Cleaned up ${file}`);
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
-    }
+    cleanupEphemeralWorkDir();
   }
 })();

@@ -61,6 +61,7 @@
     "list": "allow",
     "lsp": "allow",
   },
+  "default_agent": "code",
   "agent": {
     "general": {
       "model": "openrouter/z-ai/glm-5.2",
@@ -75,9 +76,8 @@
       "model": "anthropic/claude-sonnet-5",
     },
   },
-  "subagent_model": "openrouter/z-ai/glm-5.2",
-  "default_agent": "code",
   "model": "openrouter/moonshotai/kimi-k2.7-code",
+  "subagent_model": "openrouter/z-ai/glm-5.2",
   "small_model": "openrouter/z-ai/glm-5.2",
   "provider": {
     "openrouter": {
