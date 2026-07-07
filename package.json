@@ -15,8 +15,7 @@
     "turbo": "2.10.4",
     "typescript": "6.0.3",
     "@changesets/cli": "2.31.0",
-    "@types/node": "24.11.1",
-    "typedoc": "0.28.20"
+    "@types/node": "24.11.1"
   },
   "repository": {
     "type": "git",

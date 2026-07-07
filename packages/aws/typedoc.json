@@ -1,6 +1,0 @@
-{
-  "$schema": "https://typedoc.org/schema.json",
-  "skipErrorChecking": true,
-  "entryPoints": ["src/sst.ts"],
-  "exclude": ["node_modules", "**/*.test.ts"]
-}
