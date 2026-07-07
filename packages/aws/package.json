@@ -1,6 +1,6 @@
 {
   "name": "@yai/aws",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "module",
   "main": "dist/sst.cjs",
   "module": "dist/sst.mjs",
@@ -29,10 +29,11 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "homepage": "https://github.com/yevai/npm",
+  "homepage": "https://yevai.github.io/npm/modules/_yai_aws.html",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yevai/npm.git"
+    "url": "git+https://github.com/yevai/npm.git",
+    "directory": "packages/aws"
   },
   "peerDependencies": {
     "@pulumi/pulumi": "3.250.0",
