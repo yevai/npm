@@ -1,6 +1,8 @@
 {
   "name": "@yai/npm",
   "private": true,
+  "author": "Yevai Inc.",
+  "license": "MIT",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

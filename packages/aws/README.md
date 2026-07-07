@@ -2,8 +2,4 @@ Please do not use this package yet. This is an intern project which is in the mi
 
 # @yai/aws
 
-AWS-focused SST and Pulumi Cloud bridge.
-
-# Changelog
-
-{@include ./CHANGELOG.md}
+AWS-focused SST and Pulumi Cloud bridge. Usage: `npx yaws`.

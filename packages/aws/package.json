@@ -2,22 +2,34 @@
   "name": "@yai/aws",
   "version": "0.0.1",
   "type": "module",
-  "access": "public",
   "main": "dist/sst.cjs",
   "module": "dist/sst.mjs",
   "types": "dist/sst.d.ts",
+  "author": "Yevai Inc.",
+  "license": "MIT",
+  "keywords": [
+    "pulumi",
+    "sst",
+    "aws",
+    "cloud",
+    "infrastructure",
+    "infra",
+    "typescript"
+  ],
   "scripts": {
     "build": "rm -rf dist && unbuild"
   },
   "bin": {
-    "pulumi-sst": "./dist/cli.mjs"
+    "yaws": "./dist/cli.mjs"
   },
   "files": [
     "dist"
   ],
   "publishConfig": {
+    "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
+  "homepage": "https://github.com/yevai/npm/tree/main/packages/aws",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yevai/npm.git"
