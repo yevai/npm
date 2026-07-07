@@ -3,65 +3,55 @@
   "mcp": {
     "tavily": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "tavily-mcp@0.2.3"
-      ],
+      "command": ["npx", "-y", "tavily-mcp@0.2.3"],
       "environment": {
-        "TAVILY_API_KEY": "{env:TAVILY_API_KEY}"
-      }
+        "TAVILY_API_KEY": "{env:TAVILY_API_KEY}",
+      },
     },
     "context7": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@upstash/context7-mcp"
-      ],
+      "command": ["npx", "-y", "@upstash/context7-mcp"],
       "environment": {
         "DEFAULT_MINIMUM_TOKENS": "{{DEFAULT_MINIMUM_TOKENS}}",
-        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
-      }
-    }
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}",
+      },
+    },
   },
-  "agent": {
-    "ask": {
-      "model": "google/gemini-3.5-flash"
-    }
+  "indexing": {
+    "enabled": true,
+    "provider": "openrouter",
+    "model": "google/gemini-embedding-001",
+    "dimension": 3072,
+    "openrouter": {
+      "specificProvider": "google-ai-studio",
+      // provide "apiKey" for this to work.
+    },
+    "vectorStore": "qdrant",
+    "qdrant": {
+      "url": "http://localhost:6333",
+    },
+    "searchMaxResults": 12,
+    "searchMinScore": 0.59,
+    "embeddingBatchSize": 60,
   },
   "experimental": {
     "batch_tool": true,
     "openTelemetry": true,
-    "codebase_search": true
-  },
-  "small_model": "kilo/google/gemini-3.5-flash",
-  "model": "zai-coding-plan/glm-5.2",
-  "indexing": {
-    "enabled": true,
-    "provider": "openrouter",
-    "model": "qwen/qwen3-embedding-8b",
-    "openrouter": {
-      "specificProvider": "deepinfra"
-      // provide "apiKey" to use this
-    },
-    "dimension": 4096,
-    "vectorStore": "qdrant",
-    "qdrant": {
-      "url": "http://localhost:6333"
-    },
-    "searchMaxResults": 15,
-    "searchMinScore": 0.6,
-    "embeddingBatchSize": 45
   },
   "permission": {
-    "bash": "allow",
-    "tavily_tavily-search": {
-      "*": "allow"
+    "bash": {
+      "git status": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "ls*": "allow",
+      "wc*": "allow",
+      "*": "ask",
     },
+    "tavily_*": "allow",
     "grep": "allow",
     "glob": "allow",
     "read": "allow",
+    "semantic_search": "allow",
     "websearch": "deny",
     "webfetch": "deny",
     "todoread": "allow",
@@ -69,7 +59,39 @@
     "skill": "allow",
     "task": "allow",
     "list": "allow",
-    "lsp": "allow"
+    "lsp": "allow",
   },
   "default_agent": "ask",
+  "model": "openrouter/z-ai/glm-5.2",
+  "small_model": "openrouter/google/gemini-3.5-flash",
+  "provider": {
+    "openrouter": {
+      "models": {
+        "z-ai/glm-5.2": {
+          "options": {
+            "provider": {
+              "only": ["parasail/fp4"],
+              "allow_fallbacks": false,
+            },
+          },
+        },
+        "mistralai/codestral-embed-2505": {
+          "options": {
+            "provider": {
+              "only": ["mistral"],
+              "allow_fallbacks": false,
+            },
+          },
+        },
+        "google/gemini-3.5-flash": {
+          "options": {
+            "provider": {
+              "only": ["google-ai-studio"],
+              "allow_fallbacks": false,
+            },
+          },
+        },
+      },
+    },
+  },
 }
