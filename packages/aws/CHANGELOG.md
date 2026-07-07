@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.9
+
+### Patch Changes
+
+- 28933aa: dependency and documentation updates
+
 ## 0.0.8
 
 ### Patch Changes
