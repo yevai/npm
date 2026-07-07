@@ -29,7 +29,7 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "homepage": "https://github.com/yevai/npm/tree/main/packages/aws",
+  "homepage": "https://github.com/yevai/npm",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yevai/npm.git"
