@@ -1,3 +1,1 @@
-This repository is being prepared for release.
-
-Do not use these packages until v1 release.
+This repository is being prepared for release, do not use any packages until v1.*
