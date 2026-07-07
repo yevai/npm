@@ -1,11 +1,13 @@
 /**
- * Command execution flows for yaws.
+ * Shared execution flows for yaws commands.
  *
- * cli.ts is a thin commander shim; the actual work happens here using the
- * cross-command helpers from common.ts. ESC type extraction, generation, and
- * validation live in escReflector.ts.
+ * Each command lives in its own file (deploy.ts, generate.ts, ...) and declares its
+ * commander subcommand there. This module owns the plumbing that is identical across
+ * commands: the SST + Pulumi stack flow (context/ESC setup, workspace preparation,
+ * stack selection, secret masking, StackReference-resolving preview) and the ESC
+ * context loader used by the reflection commands.
  */
-import { copyFileSync, existsSync, symlinkSync, unlinkSync, writeFileSync } from "fs";
+import { copyFileSync, existsSync, symlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -24,31 +26,17 @@ import {
   resolveProviderEnvVars,
   runSstWithEnv,
   sanitizeAwsEnv,
-  spawnWithEnv,
-  warn,
 } from "./common.js";
 import type { CliContext, EscValues } from "./common.js";
-import { runGenerate, runValidate } from "./escReflector.js";
-import type { DxCommands, InfraCommands } from "./shared.js";
+import type { CommandName } from "./shared.js";
 
-/** SST subcommand for each infra command (SST uses 'remove' and 'diff'). */
-const SST_COMMAND_MAP: Record<InfraCommands, string> = {
-  deploy: "deploy",
-  preview: "diff",
-  dev: "dev",
-  refresh: "refresh",
-  destroy: "remove",
-  unlock: "unlock",
-  bash: "bash",
-};
-
-const STREAM_OPTS = {
+export const STREAM_OPTS = {
   color: "always",
   onOutput: (msg: string) => process.stdout.write(msg),
 } as const;
 
-/** Everything an infra command executor needs. */
-interface InfraRun {
+/** Everything a stack command executor needs. */
+export interface StackRun {
   ctx: CliContext;
   stack: Stack;
   stackName: string;
@@ -56,29 +44,24 @@ interface InfraRun {
   envFromPulumi: Record<string, string>;
 }
 
-/** Run a DX command (generate/validate). Exits the process when done. */
-export const runDx = async (command: DxCommands): Promise<void> => {
-  if (command === "bash") {
-    // "bash" is both a CLI and infra command; the infra flow owns it
-    return runInfra("bash");
-  }
-  const ctx = initContext();
+/** How one command plugs into the shared SST + Pulumi stack flow. */
+export interface StackFlowOptions {
+  name: CommandName;
+  /** SST subcommand run for this command (SST uses "remove" and "diff"). */
+  sstCommand: string;
+  /**
+   * Skip the StackReference-resolving preview. Only "unlock" sets this: it targets
+   * a stack with a stuck lock/pending operation, so a preview would fail.
+   */
+  skipPreview?: boolean;
+  /** Interactive commands (bash) skip the completion banner. */
+  interactive?: boolean;
+  execute: (run: StackRun) => Promise<void>;
+}
 
-  let escValues: EscValues;
-  try {
-    escValues = fetchEscValues(ctx);
-  } catch (e) {
-    error(`Failed to retrieve ESC environment variables for ${ctx.escReference}: ${e}`);
-    cleanupEphemeralWorkDir(ctx);
-    process.exit(1);
-  }
-
-  if (command === "generate") {
-    runGenerate(ctx, escValues);
-  } else {
-    runValidate(ctx, escValues);
-  }
-};
+/** Run the SST side of a command in SST_WORK_DIR. */
+export const runSst = ({ ctx, stackName, sstCommand, envFromPulumi }: StackRun): Promise<void> =>
+  runSstWithEnv(`npx sst ${sstCommand} --stage ${stackName}`, envFromPulumi, ctx.sstWorkDir);
 
 /** Generate minimal Pulumi.yaml and package.json for an ephemeral workspace. */
 const writeEphemeralWorkspaceFiles = (ctx: CliContext): void => {
@@ -176,75 +159,8 @@ const buildRunEnv = (providers: string[]): Record<string, string> => {
   };
 };
 
-/** Drop into an interactive shell wired to the target stack's environment. */
-const runBashSession = async ({ ctx, stackName, envFromPulumi }: InfraRun): Promise<void> => {
-  const hostHome = envFromPulumi.HOST_HOME || "";
-  const nvmScript = join(hostHome, ".nvm", "nvm.sh");
-  if (!existsSync(nvmScript)) {
-    error(`NVM is required but was not found at ${nvmScript}.`);
-    process.exit(1);
-  }
-
-  const isZsh = (process.env.SHELL || "bash").endsWith("zsh");
-  const userShell = isZsh ? "zsh" : "bash";
-
-  info(`Dropping into AWS state linked shell (${userShell}) for ${stackName}`);
-  info(`Helpful tips below. If you're here, good luck!`);
-  warn(` npx sst state export --stage ${stackName}        [Export stack state]`);
-  warn(` npx sst unlock --stage ${stackName}              [Unlock deployment]`);
-  warn(` npx sst state remove <urn> --stage ${stackName}  [Remove resource]`);
-  warn(` npx sst state edit --stage ${stackName}          [Interactive editor]`);
-
-  const nvmInitLines = [`export NVM_DIR="$HOME/.nvm"`, `[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"`];
-
-  if (isZsh) {
-    const zshrcPath = join(ctx.pulumiWorkDir, ".zshrc");
-    writeFileSync(zshrcPath, nvmInitLines.join("\n"));
-    await spawnWithEnv(userShell, { ...envFromPulumi, ZDOTDIR: ctx.pulumiWorkDir }, ctx.sstWorkDir);
-    if (existsSync(zshrcPath)) unlinkSync(zshrcPath);
-  } else {
-    const tmpInitPath = join(ctx.pulumiWorkDir, "bash-init.sh");
-    writeFileSync(tmpInitPath, [`export BASH_SILENCE_DEPRECATION_WARNING=1`, ...nvmInitLines].join("\n"));
-    await spawnWithEnv(`bash --init-file "${tmpInitPath}"`, envFromPulumi, ctx.sstWorkDir);
-    if (existsSync(tmpInitPath)) unlinkSync(tmpInitPath);
-  }
-};
-
-/** Run the SST side of a command in SST_WORK_DIR. */
-const runSst = ({ ctx, stackName, envFromPulumi }: InfraRun, sstCommand: string): Promise<void> =>
-  runSstWithEnv(`npx sst ${sstCommand} --stage ${stackName}`, envFromPulumi, ctx.sstWorkDir);
-
-/** One executor per infra command; SST always runs first, Pulumi second. */
-const INFRA_EXECUTORS: Record<InfraCommands, (run: InfraRun) => Promise<void>> = {
-  bash: runBashSession,
-  dev: async ({ ctx, stackName, envFromPulumi }) => {
-    await spawnWithEnv(`npx sst dev --stage ${stackName}`, envFromPulumi, ctx.sstWorkDir);
-  },
-  unlock: async (run) => {
-    // First unlock SST state, then cancel any in-flight Pulumi operation (releases the lock)
-    await runSst(run, "unlock");
-    await run.stack.cancel();
-    info(`✓ Cancelled pending Pulumi operations for ${run.stackName}`, true);
-  },
-  refresh: async (run) => {
-    await runSst(run, "refresh");
-    await run.stack.refresh(STREAM_OPTS);
-  },
-  destroy: async (run) => {
-    await runSst(run, "remove");
-    await run.stack.destroy(STREAM_OPTS);
-  },
-  preview: async (run) => {
-    await runSst(run, "diff");
-  },
-  deploy: async (run) => {
-    await runSst(run, "deploy");
-    await run.stack.up(STREAM_OPTS);
-  },
-};
-
-/** Run an infra command (deploy/preview/dev/refresh/destroy/unlock/bash). */
-export const runInfra = async (commandMode: InfraCommands): Promise<void> => {
+/** Run a stack command end to end: SST always runs first, Pulumi second. */
+export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive, execute }: StackFlowOptions): Promise<void> => {
   const ctx = initContext();
 
   try {
@@ -266,8 +182,7 @@ export const runInfra = async (commandMode: InfraCommands): Promise<void> => {
   try {
     maskSecretsForGithubActions(); // Mask sensitive env vars (config secrets are masked after stack selection)
 
-    const sstCommand = SST_COMMAND_MAP[commandMode];
-    info(`Starting ${commandMode} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
+    info(`Starting ${name} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
     info(`Working directory: ${ctx.pulumiWorkDir}`);
 
     prepareWorkDir(ctx);
@@ -280,23 +195,34 @@ export const runInfra = async (commandMode: InfraCommands): Promise<void> => {
 
     // Preview must always run: it resolves the registered StackReferences against Pulumi Cloud,
     // pulling in upstream stack output changes and persisting them in this stack's state.
-    // Exception: "unlock" targets a stack with a stuck lock/pending operation, so a preview would fail.
-    if (commandMode !== "unlock") {
+    if (!skipPreview) {
       await stack.preview(STREAM_OPTS);
     }
 
     const envFromPulumi = buildRunEnv(providers);
     info(`✓ Loaded environment`, true);
 
-    await INFRA_EXECUTORS[commandMode]({ ctx, stack, stackName: PULUMI_STACK, sstCommand, envFromPulumi });
+    await execute({ ctx, stack, stackName: PULUMI_STACK, sstCommand, envFromPulumi });
 
-    if (commandMode !== "bash") {
-      info(`✓ Finished ${commandMode} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
+    if (!interactive) {
+      info(`✓ Finished ${name} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
     }
   } catch (e) {
     error(`Error during SST execution: ${e}`);
     process.exitCode = 1;
   } finally {
     cleanupEphemeralWorkDir(ctx);
+  }
+};
+
+/** Resolve the CLI context and its ESC values for commands that only reflect on ESC. Exits on failure. */
+export const loadEscContext = (): { ctx: CliContext; escValues: EscValues } => {
+  const ctx = initContext();
+  try {
+    return { ctx, escValues: fetchEscValues(ctx) };
+  } catch (e) {
+    error(`Failed to retrieve ESC environment variables for ${ctx.escReference}: ${e}`);
+    cleanupEphemeralWorkDir(ctx);
+    process.exit(1);
   }
 };

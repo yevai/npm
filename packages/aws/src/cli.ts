@@ -2,13 +2,13 @@
 /**
  * yaws CLI entry point: a thin commander v15 shim.
  *
- * All cross-command logic lives in src/commands/common.ts and the command
- * execution flows in src/commands/runner.ts. This file only normalizes legacy
- * invocations onto commander and dispatches.
+ * Each command lives in its own module under src/commands/ (deploy.ts, bash.ts, ...);
+ * cross-command helpers live in src/common.ts and the shared execution flows
+ * in src/runner.ts. This file only normalizes legacy invocations onto
+ * commander and dispatches.
  */
-import { error, warn } from "./commands/common.js";
 import { createProgram } from "./commands/index.js";
-import { runDx, runInfra } from "./commands/runner.js";
+import { error, warn } from "./common.js";
 
 console.info(""); // Init pipe
 
@@ -47,8 +47,7 @@ const argsFromEnv = (): string[] => {
 };
 
 /** Detect the deprecated `yaws <target> <command>` argument order. */
-const isLegacyTargetFirst = (args: string[]): boolean =>
-  args.length === 2 && !!toCanonicalCommand(args[1]) && !toCanonicalCommand(args[0]);
+const isLegacyTargetFirst = (args: string[]): boolean => args.length === 2 && !!toCanonicalCommand(args[1]) && !toCanonicalCommand(args[0]);
 
 /**
  * Normalize legacy invocations onto commander's `yaws <command> [target]` form:
@@ -66,7 +65,7 @@ const normalizeArgs = (args: string[]): string[] => {
   return args;
 };
 
-createProgram({ runInfra, runDx })
+createProgram()
   .parseAsync(normalizeArgs(process.argv.slice(2)), { from: "user" })
   .catch((e: unknown) => {
     error(e instanceof Error ? e.message : String(e));
