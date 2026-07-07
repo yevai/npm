@@ -26,6 +26,9 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+      unbuild:
+        specifier: 3.6.1
+        version: 3.6.1(typescript@6.0.3)
 
   packages/aws:
     devDependencies:
@@ -50,12 +53,6 @@ importers:
       tsx:
         specifier: 4.23.0
         version: 4.23.0
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      unbuild:
-        specifier: 3.6.1
-        version: 3.6.1(typescript@6.0.3)
 
   packages/examples: {}
 

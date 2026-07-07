@@ -1,19 +1,18 @@
 {
-  "name": "@yai/example",
+  "name": "@yai/examples",
   "version": "0.1.0",
   "type": "module",
-  "access": "restricted",
+  "private": true,
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "author": "Yevai Inc.",
+  "license": "MIT",
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "rm -rf dist && unbuild"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com/"
   },
   "repository": {
     "type": "git",
