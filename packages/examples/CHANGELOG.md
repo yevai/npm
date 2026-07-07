@@ -1,5 +1,10 @@
 # @yai/example
 
+## 0.1.2
+
+### Patch Changes
+
+- f8b028b: test bump
 ## 0.1.1
 
 ### Patch Changes
