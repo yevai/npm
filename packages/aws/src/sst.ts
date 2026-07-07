@@ -17,16 +17,10 @@ let DEFAULT_PROJECT_NAMESPACE = "";
  * @returns The trimmed string output from stdout.
  * @example
  * ```typescript
- *     const stackId = `${this.organization}/${this.name}`;
- *
- *  if (CloudStackReferenceV2.stackCache.has(stackId)) {
- *    this.outputs = CloudStackReferenceV2.stackCache.get(stackId);
- *  } else {
- *    this.outputs = JSON.parse(
- *      pulumiCloudExecSyncShell(`pulumi stack output --stack ${stackId} --json --show-secrets`)
- *    );
- *    CloudStackReferenceV2.stackCache.set(stackId, this.outputs);
- *  }
+ *  const stackId = `${this.organization}/${this.name}`;
+ *  const cloudStackOutputs = JSON.parse(
+ *    pulumiCloudExecSyncShell(`pulumi stack output --stack ${stackId} --json --show-secrets`)
+ *  );
  *```
  * @throws {Error} If the command execution fails or times out.
  */
