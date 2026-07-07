@@ -2,7 +2,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-/** Read an env var, computing and caching it when unset so child processes inherit it. */
 const syncEnv = (key: string, getter: () => string): string => {
   const value = process.env[key];
   if (value !== undefined) {
@@ -24,18 +23,15 @@ if (!SST_WORK_DIR) {
   process.exit(1);
 }
 
-// Stack references must be registered during both preview and up so they persist in stack state
 const STACK_REF_KEYS = [...new Set([`${PULUMI_PROJECT}/${PULUMI_STACK}`, ...(STACK_REFERENCES ? STACK_REFERENCES.split(",") : [])])];
 const STACK_REFS_ACTUAL = STACK_REF_KEYS.map((ref) => new pulumi.StackReference(`${PULUMI_ORG}/${ref}`));
 
 if (IS_PREVIEW) {
-  // Re-export this stack's own outputs so they survive the preview run
   module.exports = STACK_REFS_ACTUAL[0].outputs.apply((outputs) => ({
     ...module.exports,
     ...Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, pulumi.output(value)])),
   }));
 } else {
-  // .sst/outputs.json is SST's own deploy artifact; re-export it as this stack's outputs
   const outputsPath = join(SST_WORK_DIR, ".sst/outputs.json");
   const newOutputs = JSON.parse(readFileSync(outputsPath, "utf-8")) as Record<string, any>;
   for (const [key, value] of Object.entries(newOutputs)) {
