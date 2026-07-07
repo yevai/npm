@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /**
- * yaws CLI entry point: a thin commander v15 shim.
+ * yaws CLI entry point: a thin commander shim.
  *
- * Each command lives in its own module under src/commands/ (deploy.ts, bash.ts, ...);
- * cross-command helpers live in src/common.ts and the shared execution flows
- * in src/runner.ts. This file only normalizes legacy invocations onto
- * commander and dispatches.
+ * Each command lives in its own module under `commands/`; cross-command helpers
+ * live in `common.ts` and the shared execution flows in `runner.ts`. This file
+ * only normalizes legacy invocations onto commander and dispatches.
+ *
+ * @packageDocumentation
  */
 import { createProgram } from "./commands/index.js";
 import { error, warn } from "./common.js";
 
-console.info(""); // Init pipe
+console.info("");
 
 /** Legacy PULUMI_COMMAND values (and CLI aliases) mapped to canonical command names. */
 const COMMAND_ALIASES: Record<string, string> = {
@@ -31,11 +32,10 @@ const COMMAND_ALIASES: Record<string, string> = {
 
 const toCanonicalCommand = (command: string): string | undefined => COMMAND_ALIASES[command.toLowerCase()];
 
-/** Zero-arg invocation: derive the command from the PULUMI_COMMAND env var. */
 const argsFromEnv = (): string[] => {
   const envCommand = process.env.PULUMI_COMMAND;
   if (!envCommand) {
-    return []; // no args, no env command: let commander print help
+    return [];
   }
   const command = toCanonicalCommand(envCommand);
   if (!command) {
@@ -46,7 +46,6 @@ const argsFromEnv = (): string[] => {
   return [command];
 };
 
-/** Detect the deprecated `yaws <target> <command>` argument order. */
 const isLegacyTargetFirst = (args: string[]): boolean => args.length === 2 && !!toCanonicalCommand(args[1]) && !toCanonicalCommand(args[0]);
 
 /**

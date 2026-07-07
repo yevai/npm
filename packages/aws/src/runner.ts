@@ -13,6 +13,7 @@ import { fileURLToPath } from "url";
 
 import type { Stack } from "@pulumi/pulumi/automation";
 
+import type { CliContext, EscValues } from "./common.js";
 import {
   alert,
   applyEscEnvironment,
@@ -27,7 +28,6 @@ import {
   runSstWithEnv,
   sanitizeAwsEnv,
 } from "./common.js";
-import type { CliContext, EscValues } from "./common.js";
 import type { CommandName } from "./shared.js";
 
 export const STREAM_OPTS = {
@@ -35,7 +35,6 @@ export const STREAM_OPTS = {
   onOutput: (msg: string) => process.stdout.write(msg),
 } as const;
 
-/** Everything a stack command executor needs. */
 export interface StackRun {
   ctx: CliContext;
   stack: Stack;
@@ -44,7 +43,6 @@ export interface StackRun {
   envFromPulumi: Record<string, string>;
 }
 
-/** How one command plugs into the shared SST + Pulumi stack flow. */
 export interface StackFlowOptions {
   name: CommandName;
   /** SST subcommand run for this command (SST uses "remove" and "diff"). */
@@ -59,11 +57,9 @@ export interface StackFlowOptions {
   execute: (run: StackRun) => Promise<void>;
 }
 
-/** Run the SST side of a command in SST_WORK_DIR. */
 export const runSst = ({ ctx, stackName, sstCommand, envFromPulumi }: StackRun): Promise<void> =>
   runSstWithEnv(`npx sst ${sstCommand} --stage ${stackName}`, envFromPulumi, ctx.sstWorkDir);
 
-/** Generate minimal Pulumi.yaml and package.json for an ephemeral workspace. */
 const writeEphemeralWorkspaceFiles = (ctx: CliContext): void => {
   if (!ctx.ephemeralPulumiDir) return;
 
@@ -92,7 +88,6 @@ runtime:
   );
 };
 
-/** Copy the Pulumi program template and link node_modules into the work dir. */
 const prepareWorkDir = (ctx: CliContext): void => {
   copyFileSync(join(dirname(fileURLToPath(import.meta.url)), "pulumi-template.ts"), join(ctx.pulumiWorkDir, "index.ts"));
 
@@ -103,9 +98,7 @@ const prepareWorkDir = (ctx: CliContext): void => {
   }
 };
 
-/** Select the stack via the Automation API and attach the provider ESC environments. */
 const openStack = async (ctx: CliContext, stackName: string, providers: string[]): Promise<Stack> => {
-  // Use explicit index.js for ESM compatibility
   const { LocalWorkspace } = await import("@pulumi/pulumi/automation/index.js");
 
   const stack = await LocalWorkspace.createOrSelectStack(
@@ -130,7 +123,6 @@ const openStack = async (ctx: CliContext, stackName: string, providers: string[]
   return stack;
 };
 
-/** Build the child-process env: provider ESC env vars plus HOST_*-prefixed host credentials. */
 const buildRunEnv = (providers: string[]): Record<string, string> => {
   const {
     PULUMI_ACCESS_TOKEN: HOST_PULUMI_ACCESS_TOKEN,
@@ -152,14 +144,21 @@ const buildRunEnv = (providers: string[]): Record<string, string> => {
     HOST_USER,
   };
 
-  // Resolve provider ESC env vars directly instead of snapshotting them from inside the preview run
   return {
     ...resolveProviderEnvVars(HOST_PULUMI_ORG ?? HOST_PULUMI_ORGANIZATION, providers),
     ...(Object.fromEntries(Object.entries(hostEnv).filter(([, v]) => v !== undefined)) as Record<string, string>),
   };
 };
 
-/** Run a stack command end to end: SST always runs first, Pulumi second. */
+/**
+ * Run a stack command end to end: SST always runs first, Pulumi second.
+ *
+ * Sensitive env vars are masked immediately; secret stack config values are masked
+ * after stack selection, before any engine output is streamed. Unless skipped, a
+ * preview always runs first: it resolves the registered StackReferences against
+ * Pulumi Cloud, pulling in upstream stack output changes and persisting them in
+ * this stack's state.
+ */
 export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive, execute }: StackFlowOptions): Promise<void> => {
   const ctx = initContext();
 
@@ -180,7 +179,7 @@ export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive,
   writeEphemeralWorkspaceFiles(ctx);
 
   try {
-    maskSecretsForGithubActions(); // Mask sensitive env vars (config secrets are masked after stack selection)
+    maskSecretsForGithubActions();
 
     info(`Starting ${name} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
     info(`Working directory: ${ctx.pulumiWorkDir}`);
@@ -190,11 +189,8 @@ export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive,
     const providers = PULUMI_PROVIDERS ? PULUMI_PROVIDERS.split(",").map((p) => p.trim()) : [];
     const stack = await openStack(ctx, PULUMI_STACK, providers);
 
-    // Mask secret config values before any engine output is streamed
     await maskStackSecretsForGithubActions(stack);
 
-    // Preview must always run: it resolves the registered StackReferences against Pulumi Cloud,
-    // pulling in upstream stack output changes and persisting them in this stack's state.
     if (!skipPreview) {
       await stack.preview(STREAM_OPTS);
     }
@@ -215,7 +211,6 @@ export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive,
   }
 };
 
-/** Resolve the CLI context and its ESC values for commands that only reflect on ESC. Exits on failure. */
 export const loadEscContext = (): { ctx: CliContext; escValues: EscValues } => {
   const ctx = initContext();
   try {

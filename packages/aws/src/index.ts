@@ -1,7 +1,16 @@
+/**
+ * Pulumi program template (shipped as dist/pulumi-template.ts and copied into the
+ * Pulumi work dir by the runner). It exports the SST outputs of the target stack:
+ * during previews by resolving StackReferences against Pulumi Cloud, otherwise by
+ * reading the freshly written .sst/outputs.json.
+ *
+ * @packageDocumentation
+ */
 import * as pulumi from "@pulumi/pulumi";
 import { readFileSync } from "fs";
 import { join } from "path";
 
+/** Return the env var if set; otherwise compute it via `getter` and persist it to the env. */
 const syncEnv = (key: string, getter: () => string): string => {
   const value = process.env[key];
   if (value !== undefined) {

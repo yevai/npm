@@ -1,3 +1,10 @@
+/**
+ * Runtime helpers for SST applications: typed access to Pulumi ESC configuration
+ * ({@link CloudConfigV2}) and cross-stack outputs ({@link CloudStackReferenceV2}),
+ * resolved directly through the Pulumi CLI.
+ *
+ * @packageDocumentation
+ */
 import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
@@ -44,6 +51,11 @@ export const pulumiCloudExecSyncShell = (command: string): string => {
   }).trim();
 };
 
+/**
+ * Resolve the Pulumi organization from the PULUMI_ORG(ANIZATION) or
+ * HOST_PULUMI_ORG(ANIZATION) env vars, falling back to `pulumi org get-default`,
+ * and cache the first non-empty result.
+ */
 const getEffectivePulumiOrganization = () => {
   if (DEFAULT_HOST_PULUMI_ORG) {
     return DEFAULT_HOST_PULUMI_ORG;
@@ -76,6 +88,7 @@ const getEffectivePulumiOrganization = () => {
   return "";
 };
 
+/** Resolve the project namespace from PULUMI_PROJECT or the project package.json name, cached. */
 const getProjectNamespace = (): string => {
   if (DEFAULT_PROJECT_NAMESPACE) {
     return DEFAULT_PROJECT_NAMESPACE;
@@ -96,14 +109,13 @@ const getProjectNamespace = (): string => {
         DEFAULT_PROJECT_NAMESPACE = pkg.name;
         return pkg.name;
       }
-    } catch {
-      // Fall through
-    }
+    } catch {}
   }
 
   throw new Error("PULUMI_PROJECT not set and could not read name from package.json");
 };
 
+/** Resolve the stage from the explicit argument or PULUMI_STACK. */
 const getStage = (stageArg?: string): string => {
   const stage = stageArg ?? process.env.PULUMI_STACK;
   if (!stage) {
@@ -113,13 +125,12 @@ const getStage = (stageArg?: string): string => {
 };
 
 /**
- * CloudConfigV2 - Enhanced Pulumi Config API for SST
+ * Typed access to Pulumi ESC configuration and secrets within SST applications.
  *
- * Provides typed access to Pulumi ESC configuration and secrets within SST applications.
- * Unlike the original CloudConfig, this version directly queries Pulumi Environments
- * using the CLI, ensuring access to the most up-to-date configuration values.
- *
- * It handles caching of configuration outputs to minimize CLI execution overhead.
+ * Unlike the original CloudConfig, this version directly queries Pulumi
+ * Environments using the CLI, ensuring access to the most up-to-date
+ * configuration values, and caches them per environment to minimize CLI
+ * execution overhead.
  *
  * @example
  * ```typescript
@@ -144,6 +155,13 @@ export class CloudConfigV2 {
   readonly project: string;
   readonly stage: string;
 
+  /**
+   * Resolves the target ESC environment from the ambient PULUMI_* env vars and
+   * loads (or reuses) its configuration values.
+   *
+   * @throws {Error} If the organization, stage, or project cannot be determined,
+   *                 or if PULUMI_WORK_DIR is unset outside of tests.
+   */
   constructor() {
     const { VITEST, PULUMI_WORK_DIR } = process.env;
 
@@ -173,29 +191,40 @@ export class CloudConfigV2 {
     return this.config[key];
   }
 
+  /** Get a config value as a string, or undefined when missing. */
   get(key: string): string | undefined {
     const value = this.getValue(key);
     return value !== undefined ? String(value) : undefined;
   }
 
+  /**
+   * Get a required config value as a string.
+   * @throws {Error} If the key is missing.
+   */
   require(key: string): string {
     const value = this.get(key);
     if (value === undefined) throw new Error(`Missing required config '${key}'`);
     return value;
   }
 
+  /** Get a config value as a boolean (the string "true" is truthy), or undefined when missing. */
   getBoolean(key: string): boolean | undefined {
     const v = this.getValue(key);
     if (v === undefined) return undefined;
     return typeof v === "boolean" ? v : String(v).toLowerCase() === "true";
   }
 
+  /**
+   * Get a required config value as a boolean.
+   * @throws {Error} If the key is missing.
+   */
   requireBoolean(key: string): boolean {
     const v = this.getBoolean(key);
     if (v === undefined) throw new Error(`Missing required config '${key}'`);
     return v;
   }
 
+  /** Get a config value as a number, or undefined when missing or not numeric. */
   getNumber(key: string): number | undefined {
     const v = this.getValue(key);
     if (v === undefined) return undefined;
@@ -203,12 +232,21 @@ export class CloudConfigV2 {
     return isNaN(n) ? undefined : n;
   }
 
+  /**
+   * Get a required config value as a number.
+   * @throws {Error} If the key is missing or not numeric.
+   */
   requireNumber(key: string): number {
     const v = this.getNumber(key);
     if (v === undefined) throw new Error(`Missing required config '${key}'`);
     return v;
   }
 
+  /**
+   * Get a config value as a structured object, parsing JSON strings when needed.
+   * @template T - The expected shape of the value.
+   * @returns The value typed as T, or undefined when missing or unparsable.
+   */
   getObject<T>(key: string): T | undefined {
     const v = this.getValue(key);
     if (v === undefined) return undefined;
@@ -222,6 +260,11 @@ export class CloudConfigV2 {
     return v as T;
   }
 
+  /**
+   * Get a required config value as a structured object.
+   * @template T - The expected shape of the value.
+   * @throws {Error} If the key is missing or unparsable.
+   */
   requireObject<T>(key: string): T {
     const v = this.getObject<T>(key);
     if (v === undefined) throw new Error(`Missing required config '${key}'`);
@@ -230,14 +273,12 @@ export class CloudConfigV2 {
 }
 
 /**
- * CloudStackReferenceV2 - Enhanced Stack Reference for SST
+ * Typed access to outputs from other Pulumi stacks within SST applications.
  *
- * Provides typed access to outputs from other Pulumi stacks within SST applications.
- * Unlike the original CloudStackReference, this version directly queries the Pulumi
- * Cloud backend using the CLI, ensuring access to the most up-to-date stack outputs.
- *
- * It handles caching of stack outputs to minimize CLI calls and supports resolution
- * of stack names across organizations and stages.
+ * Unlike the original CloudStackReference, this version directly queries the
+ * Pulumi Cloud backend using the CLI, ensuring access to the most up-to-date
+ * stack outputs. Outputs are cached per stack to minimize CLI calls, and stack
+ * names resolve across organizations and stages.
  *
  * @example
  * ```typescript

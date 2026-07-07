@@ -60,6 +60,11 @@ for (const { name, dataEnv, schemaFile } of schemas) {
 process.exit(exitCode);
 `;
 
+/**
+ * Write the Zod schema for `data` to ./types/<typeName>.ts via in-process
+ * json-to-zod codegen. For PulumiEscConfig, also emit the CloudConfigV2 module
+ * augmentation and ensure sst.config.ts references it.
+ */
 const generateZodTypes = (ctx: CliContext, typeName: string, data: unknown): void => {
   const typesFolder = join(ctx.sstWorkDir, "types");
   if (!existsSync(typesFolder)) {
@@ -74,18 +79,15 @@ const generateZodTypes = (ctx: CliContext, typeName: string, data: unknown): voi
   const outputTypePath = join(typesFolder, `${typeName}.ts`);
   const typeFileExists = existsSync(outputTypePath);
 
-  // In-process codegen: json-to-zod is a pinned, exact dependency bundled into this CLI.
   writeFileSync(outputTypePath, jsonToZod(data, typeName, true));
   appendFileSync(outputTypePath, `\nexport type ${typeName} = z.infer<typeof ${typeName}>;\n`);
 
-  // Generate module augmentation for typed CloudConfigV2
   if (typeName === "PulumiEscConfig") {
     const dtsPath = join(typesFolder, "pulumi-esc.d.ts");
     const dtsContent = `import type { ${typeName} } from "./${typeName}";\n\ndeclare module "@yai/aws" {\n  interface CloudConfigV2 {\n    requireObject<K extends keyof ${typeName}>(key: K): ${typeName}[K];\n    getObject<K extends keyof ${typeName}>(key: K): ${typeName}[K] | undefined;\n  }\n}\n`;
     writeFileSync(dtsPath, dtsContent);
     info(`Generated module augmentation: ${dtsPath}`, true);
 
-    // Ensure sst.config.ts has the triple-slash reference
     const refDirective = '/// <reference path="./types/pulumi-esc.d.ts" />';
     try {
       const sstConfig = readFileSync(ctx.sstConfigPath, "utf-8");

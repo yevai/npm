@@ -6,7 +6,6 @@ import type { StackRun } from "../runner.js";
 import { runStackFlow } from "../runner.js";
 import { createTargetCommand } from "../shared.js";
 
-/** Drop into an interactive shell wired to the target stack's environment. */
 const runBashSession = async ({ ctx, stackName, envFromPulumi }: StackRun): Promise<void> => {
   const hostHome = envFromPulumi.HOST_HOME || "";
   const nvmScript = join(hostHome, ".nvm", "nvm.sh");

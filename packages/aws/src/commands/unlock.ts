@@ -9,9 +9,8 @@ export const unlockCommand = createTargetCommand(
     runStackFlow({
       name: "unlock",
       sstCommand: "unlock",
-      skipPreview: true, // the stack is locked; a preview would fail
+      skipPreview: true,
       execute: async (run) => {
-        // First unlock SST state, then cancel any in-flight Pulumi operation (releases the lock)
         await runSst(run);
         await run.stack.cancel();
         info(`✓ Cancelled pending Pulumi operations for ${run.stackName}`, true);

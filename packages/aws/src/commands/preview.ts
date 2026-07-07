@@ -8,7 +8,6 @@ export const previewCommand = createTargetCommand(
     runStackFlow({
       name: "preview",
       sstCommand: "diff",
-      // The Pulumi diff already ran: the shared flow's preview covers it
       execute: (run) => runSst(run),
     }),
   ["diff"],

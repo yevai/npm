@@ -10,10 +10,6 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-// ---------------------------------------------------------------------------
-// Logging
-// ---------------------------------------------------------------------------
-
 export const COLORS = {
   reset: "\x1b[0m",
   green: "\x1b[32m",
@@ -39,11 +35,6 @@ export const error = (message: string): void => {
   console.error(`${COLORS.red}${message}${COLORS.reset}`);
 };
 
-// ---------------------------------------------------------------------------
-// Environment variables
-// ---------------------------------------------------------------------------
-
-/** Set an env var, logging when it is introduced and warning when an existing value changes. */
 export const setEnv = (key: string, value: string, source: string): void => {
   const current = process.env[key];
   if (current === undefined) {
@@ -68,17 +59,17 @@ export const COLOR_ENV = {
   CLICOLOR_FORCE: "1",
 };
 
-/** Sanitize the merged result so AWS profile vars from extraEnv (e.g. a restored env snapshot) are also stripped. */
+/**
+ * Build a child-process env from `process.env` plus `extraEnv`, sanitizing the
+ * merged result so AWS profile vars from extraEnv (e.g. a restored env snapshot)
+ * are also stripped.
+ */
 export const buildEnv = (extraEnv: Record<string, string>): NodeJS.ProcessEnv =>
   sanitizeAwsEnv({
     ...process.env,
     ...extraEnv,
     ...COLOR_ENV,
   });
-
-// ---------------------------------------------------------------------------
-// CLI context (working directories, package.json, ESC reference)
-// ---------------------------------------------------------------------------
 
 export interface PackageJson {
   name: string;
@@ -87,6 +78,7 @@ export interface PackageJson {
   devDependencies?: Record<string, string>;
 }
 
+/** Resolved working directories, project metadata, and ESC reference for a CLI run. */
 export interface CliContext {
   sstWorkDir: string;
   sstConfigPath: string;
@@ -98,13 +90,11 @@ export interface CliContext {
   escReference: string;
 }
 
-/** Print a fatal error and exit. */
 const fatal = (message: string): never => {
   error(message);
   process.exit(1);
 };
 
-/** Resolve SST_WORK_DIR (defaulting to cwd) and require sst.config.ts to be present. */
 const resolveSstWorkDir = (): { sstWorkDir: string; sstConfigPath: string } => {
   if (!process.env.SST_WORK_DIR) {
     process.env.SST_WORK_DIR = process.cwd();
@@ -119,7 +109,6 @@ const resolveSstWorkDir = (): { sstWorkDir: string; sstConfigPath: string } => {
   return { sstWorkDir, sstConfigPath };
 };
 
-/** Load the project package.json, requiring a "name" field. */
 const loadProjectPackageJson = (sstWorkDir: string): PackageJson => {
   const packageJsonPath = join(sstWorkDir, "package.json");
   if (!existsSync(packageJsonPath)) {
@@ -133,7 +122,6 @@ const loadProjectPackageJson = (sstWorkDir: string): PackageJson => {
   return packageJson;
 };
 
-/** Resolve PULUMI_WORK_DIR, creating an ephemeral temp dir when unset. */
 const resolvePulumiWorkDir = (): { pulumiWorkDir: string; ephemeralPulumiDir: boolean } => {
   if (!process.env.PULUMI_WORK_DIR) {
     process.env.PULUMI_WORK_DIR = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), "pulumi-"));
@@ -145,7 +133,6 @@ const resolvePulumiWorkDir = (): { pulumiWorkDir: string; ephemeralPulumiDir: bo
   return { pulumiWorkDir: process.env.PULUMI_WORK_DIR!, ephemeralPulumiDir: false };
 };
 
-/** Build the [org, project, stack] parts of the ESC reference from the env. */
 const resolveEscParts = (): string[] =>
   [process.env.PULUMI_ORG ?? process.env.PULUMI_ORGANIZATION, process.env.PULUMI_PROJECT, process.env.PULUMI_STACK].filter(
     Boolean,
@@ -177,6 +164,7 @@ export const initContext = (): CliContext => {
   };
 };
 
+/** Remove the Pulumi work dir when it was created ephemerally; no-op otherwise. */
 export const cleanupEphemeralWorkDir = (ctx: CliContext): void => {
   if (!ctx.ephemeralPulumiDir) return;
   try {
@@ -187,10 +175,7 @@ export const cleanupEphemeralWorkDir = (ctx: CliContext): void => {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Pulumi ESC
-// ---------------------------------------------------------------------------
-
+/** Resolved values of a Pulumi ESC environment. */
 export interface EscValues {
   environmentVariables?: Record<string, string>;
   pulumiConfig?: Record<string, unknown>;
@@ -205,11 +190,15 @@ export const fetchEscValues = (ctx: CliContext): EscValues =>
     }),
   );
 
-/** Merge ESC environmentVariables into process.env, handling PULUMI_PROVIDERS and STACK_REFERENCES specially. */
+/**
+ * Merge ESC environmentVariables into process.env, handling PULUMI_PROVIDERS and
+ * STACK_REFERENCES specially. Target identity vars (PULUMI_STACK, PULUMI_COMMAND,
+ * PULUMI_PROJECT, PULUMI_ORG*) are never adopted from ESC.
+ */
 export const applyEscEnvironment = (values: EscValues): void => {
   const { PULUMI_PROVIDERS, STACK_REFERENCES, PULUMI_STACK, PULUMI_COMMAND, PULUMI_PROJECT, PULUMI_ORGANIZATION, PULUMI_ORG, ...otherEnv } =
     values.environmentVariables ?? {};
-  void PULUMI_STACK, PULUMI_COMMAND, PULUMI_PROJECT, PULUMI_ORGANIZATION, PULUMI_ORG; // never adopted from ESC
+  (void PULUMI_STACK, PULUMI_COMMAND, PULUMI_PROJECT, PULUMI_ORGANIZATION, PULUMI_ORG);
 
   Object.keys(otherEnv).forEach((key) => {
     info(`Added ESC Environment Variable: ${key}`, true);
@@ -256,10 +245,7 @@ export const resolveProviderEnvVars = (organization: string | undefined, provide
   return merged;
 };
 
-// ---------------------------------------------------------------------------
-// Child processes
-// ---------------------------------------------------------------------------
-
+/** Spawn a bash shell command with inherited stdio and a sanitized, color-forced env. */
 export const spawnWithEnv = (shellCommand: string, extraEnv: Record<string, string>, cwd: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     const child = spawn("/bin/bash", ["-c", shellCommand], {
@@ -289,10 +275,7 @@ export const runSstWithEnv = async (shellCommand: string, extraEnv: Record<strin
   }
 };
 
-// ---------------------------------------------------------------------------
-// GitHub Actions secret masking
-// ---------------------------------------------------------------------------
-
+/** Mask env var values whose keys look sensitive when running in GitHub Actions. */
 export const maskSecretsForGithubActions = (): void => {
   if (process.env.GITHUB_ACTIONS !== "true") {
     return;
@@ -330,7 +313,7 @@ const extractSecretValues = (value: string): string[] => {
     try {
       return extractStringValues(JSON.parse(value));
     } catch {
-      // Not valid JSON, mask the raw string below
+      return extractStringValues(value);
     }
   }
   return extractStringValues(value);
