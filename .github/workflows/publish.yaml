@@ -14,9 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
       id-token: write
-      actions: write
     environment: prod
     steps:
       - name: Git Checkout
@@ -24,34 +22,21 @@ jobs:
         with:
           persist-credentials: true
           fetch-depth: 0
-
       - name: Setup PNPM
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # Supply chain attack protection, v6.0.9
-
       - name: Setup Node
         uses: actions/setup-node@7c2c68d20d402ed6a201ada70a81341941093140 # Supply chain attack protection, v6.4.0
         with:
           node-version-file: "package.json"
           package-manager-cache: false # Cache poisoning protection.
-
-      - name: Setup Turbo Cache
-        uses: rharkor/caching-for-turbo@c10d0371171b6fcc472d44d7108075f9f1900979 # Supply chain attack protection, v2.5.0
-        with:
-          cache-prefix: yevai-npm
-          provider: github
-
       - name: PNPM Install
         run: pnpm install --frozen-lockfile
-
       - name: Version Packages
         run: pnpm changeset version
-
       - name: Update Lockfile
         run: pnpm install --no-frozen-lockfile
-
       - name: Build Packages
         run: pnpm run build
-
       - name: Commit Versioning
         run: |
           set -e
@@ -59,12 +44,10 @@ jobs:
           git config --global user.email "devops@yev.ai"
           git add .
           git commit -m "Versioning packages."
-
       - name: Publish Packages
         run: pnpm changeset publish
         env:
           NPM_CONFIG_PROVENANCE: true
-
       - name: Push Tags and Commit
         run: |
           set -e
