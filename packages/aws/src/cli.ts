@@ -137,12 +137,12 @@ if (!process.env.PULUMI_PROJECT) {
   process.env.PULUMI_PROJECT = packageJson.name;
 }
 
-// Usage overload: pulumi-sst <project>/<stack> [InfraCommands | DxCommands]
+// Usage overload: yaws <project>/<stack> [InfraCommands | DxCommands]
 const args = process.argv.slice(2);
 
 if (args.length !== 2 && args.length > 0) {
   error(`Expected zero or two arguments, received ${args.length}`);
-  error(`Usage: pulumi-sst <project>/<stack> (also a valid ESC env) <command>`);
+  error(`Usage: yaws <project>/<stack> (also a valid ESC env) <command>`);
   process.exit(1);
 }
 
@@ -365,7 +365,7 @@ try {
           workPkgJson,
           JSON.stringify(
             {
-              name: "pulumi-sst",
+              name: "yaws",
               private: true,
               type: "module",
               devDependencies: { zod: "*" },

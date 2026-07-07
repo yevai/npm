@@ -31,8 +31,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-          cache: pnpm
+          package-manager-cache: false
 
       - name: Turbo Cache Setup
         uses: rharkor/caching-for-turbo@v2.5.0
@@ -56,12 +55,14 @@ jobs:
         run: |
           set -e
           git config --global user.name "GitHub Actions"
-          git config --global user.email "yevgen@yev.ai"
+          git config --global user.email "devops@yev.ai"
           git add .
           git commit -m "Versioning packages."
 
       - name: Publish Packages
         run: pnpm changeset publish
+        env:
+          NPM_CONFIG_PROVENANCE: true
 
       - name: Push Tags and Commit
         run: |
