@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.7
+
+### Patch Changes
+
+- 2bd2e7e: documentation and homepage updates
+
 ## 0.0.6
 
 ### Patch Changes

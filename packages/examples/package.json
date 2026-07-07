@@ -1,6 +1,6 @@
 {
   "name": "@yai/examples",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "private": true,
   "main": "dist/index.cjs",
@@ -14,9 +14,11 @@
   "scripts": {
     "build": "rm -rf dist && unbuild"
   },
+  "homepage": "https://yevai.github.io/npm/modules/_yai_examples.html",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yai/npm.git"
+    "url": "git+https://github.com/yai/npm.git",
+    "directory": "packages/examples"
   },
   "exports": {
     ".": {
