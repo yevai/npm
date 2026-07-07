@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.8
+
+### Patch Changes
+
+- 77dd0a2: minor export and ts updates
+
 ## 0.0.7
 
 ### Patch Changes
