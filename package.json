@@ -5,17 +5,15 @@
   "license": "MIT",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "lint": "turbo run lint"
   },
   "devDependencies": {
     "prettier": "3.9.4",
     "turbo": "2.10.4",
     "typescript": "6.0.3",
     "@changesets/cli": "2.31.0",
-    "@types/node": "^24"
+    "@types/node": "24.11.1"
   },
   "repository": {
     "type": "git",
@@ -23,6 +21,6 @@
   },
   "packageManager": "pnpm@11.10.0+sha512.0b7f8b98060031904c017e3a41eb187a16d40eeb829b95c4f8cb03681761fc4ab53dd219115b9b447f4dce1a05a214764461e7d3703392a9f32f9511ce8c86c8",
   "engines": {
-    "node": "24"
+    "node": "24.11.1"
   }
 }
