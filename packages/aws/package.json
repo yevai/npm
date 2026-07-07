@@ -40,6 +40,14 @@
     "@pulumi/aws": "7.35.0",
     "sst": "4.17.0"
   },
+  "peerDependenciesMeta": {
+    "@pulumi/pulumi": {
+      "optional": true
+    },
+    "@pulumi/aws": {
+      "optional": true
+    }
+  },
   "exports": {
     ".": {
       "import": {
@@ -52,6 +60,7 @@
       }
     }
   },
+  "sideEffects": false,
   "engines": {
     "node": ">=24"
   },
