@@ -6,6 +6,8 @@
   "scripts": {
     "build": "turbo run build",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "changes": "changeset",
+    "version": "git diff --quiet && git diff --cached --quiet && changeset version && pnpm install && (git diff --quiet || git commit --amend --no-edit -a)",
     "lint": "turbo run lint"
   },
   "devDependencies": {

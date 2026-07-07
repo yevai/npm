@@ -31,24 +31,9 @@ jobs:
           package-manager-cache: false # Cache poisoning protection.
       - name: PNPM Install
         run: pnpm install --frozen-lockfile
-      - name: Version Packages
-        run: pnpm changeset version
-      - name: Update Lockfile
-        run: pnpm install --no-frozen-lockfile
       - name: Build Packages
         run: pnpm run build
-      - name: Commit Versioning
-        run: |
-          set -e
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "devops@yev.ai"
-          git add .
-          git commit -m "Versioning packages."
       - name: Publish Packages
         run: pnpm changeset publish
         env:
           NPM_CONFIG_PROVENANCE: true
-      - name: Push Tags and Commit
-        run: |
-          set -e
-          git push --follow-tags
