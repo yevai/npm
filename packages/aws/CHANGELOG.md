@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.3
+
+### Patch Changes
+
+- 9ff5a7d: [chore] preliminary security hardening
+
 ## 0.0.2
 
 ### Patch Changes
