@@ -1,5 +1,11 @@
 # @yai/example
 
+## 0.1.3
+
+### Patch Changes
+
+- 77dd0a2: minor export and ts updates
+
 ## 0.1.2
 
 ### Patch Changes

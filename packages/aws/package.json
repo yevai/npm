@@ -1,6 +1,6 @@
 {
   "name": "@yai/aws",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "type": "module",
   "main": "dist/sst.cjs",
   "module": "dist/sst.mjs",
@@ -42,9 +42,14 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/sst.d.ts",
-      "import": "./dist/sst.mjs",
-      "require": "./dist/sst.cjs"
+      "import": {
+        "types": "./dist/sst.d.mts",
+        "default": "./dist/sst.mjs"
+      },
+      "require": {
+        "types": "./dist/sst.d.cts",
+        "default": "./dist/sst.cjs"
+      }
     }
   },
   "engines": {
