@@ -13,7 +13,10 @@ export const unlockCommand = createTargetCommand(
       execute: async (run) => {
         await runSst(run);
         await run.stack.cancel();
-        info(`✓ Cancelled pending Pulumi operations for ${run.stackName}`, true);
+        info(
+          `✓ Cancelled pending Pulumi operations for ${run.stackName}`,
+          true,
+        );
       },
     }),
   ["cancel"],

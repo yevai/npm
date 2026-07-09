@@ -8,7 +8,15 @@
  * ./types schemas. The only files ever written are the actual deliverables in ./types.
  */
 import { execSync } from "child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { jsonToZod } from "json-to-zod";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -65,7 +73,11 @@ process.exit(exitCode);
  * json-to-zod codegen. For PulumiEscConfig, also emit the CloudConfigV2 module
  * augmentation and ensure sst.config.ts references it.
  */
-const generateZodTypes = (ctx: CliContext, typeName: string, data: unknown): void => {
+const generateZodTypes = (
+  ctx: CliContext,
+  typeName: string,
+  data: unknown,
+): void => {
   const typesFolder = join(ctx.sstWorkDir, "types");
   if (!existsSync(typesFolder)) {
     try {
@@ -80,7 +92,10 @@ const generateZodTypes = (ctx: CliContext, typeName: string, data: unknown): voi
   const typeFileExists = existsSync(outputTypePath);
 
   writeFileSync(outputTypePath, jsonToZod(data, typeName, true));
-  appendFileSync(outputTypePath, `\nexport type ${typeName} = z.infer<typeof ${typeName}>;\n`);
+  appendFileSync(
+    outputTypePath,
+    `\nexport type ${typeName} = z.infer<typeof ${typeName}>;\n`,
+  );
 
   if (typeName === "PulumiEscConfig") {
     const dtsPath = join(typesFolder, "pulumi-esc.d.ts");
@@ -100,21 +115,31 @@ const generateZodTypes = (ctx: CliContext, typeName: string, data: unknown): voi
     }
   }
 
-  info(`${typeFileExists ? "Updated" : "Generated"} types for ${typeName}: ${outputTypePath}`, true);
+  info(
+    `${typeFileExists ? "Updated" : "Generated"} types for ${typeName}: ${outputTypePath}`,
+    true,
+  );
 };
 
 /** Generate Zod schemas (and CloudConfigV2 module augmentation) from the resolved ESC values. Exits when done. */
-export const runGenerate = (ctx: CliContext, { environmentVariables, pulumiConfig }: EscValues): never => {
+export const runGenerate = (
+  ctx: CliContext,
+  { environmentVariables, pulumiConfig }: EscValues,
+): never => {
   const userHasZod = ctx.allDependencies.includes("zod");
   let cliExecutionErrors = false;
 
   try {
     if (environmentVariables) {
-      info(`Reflecting ${Object.keys(environmentVariables).length} ESC environment variables`);
+      info(
+        `Reflecting ${Object.keys(environmentVariables).length} ESC environment variables`,
+      );
       generateZodTypes(ctx, "PulumiEscEnvironment", environmentVariables);
     }
     if (pulumiConfig) {
-      info(`Reflecting ${Object.keys(pulumiConfig).length} top-level ESC config values`);
+      info(
+        `Reflecting ${Object.keys(pulumiConfig).length} top-level ESC config values`,
+      );
       generateZodTypes(ctx, "PulumiEscConfig", pulumiConfig);
     }
   } catch (e) {
@@ -135,10 +160,17 @@ export const runGenerate = (ctx: CliContext, { environmentVariables, pulumiConfi
  * or with success when ESC is not configured at all. Returns normally when validation
  * should proceed.
  */
-const assertSchemasMatchEscData = (ctx: CliContext, { environmentVariables, pulumiConfig }: EscValues): void => {
+const assertSchemasMatchEscData = (
+  ctx: CliContext,
+  { environmentVariables, pulumiConfig }: EscValues,
+): void => {
   const typesDir = join(ctx.sstWorkDir, "types");
   const pairs = [
-    { file: "PulumiEscEnvironment.ts", label: "environmentVariables", data: !!environmentVariables },
+    {
+      file: "PulumiEscEnvironment.ts",
+      label: "environmentVariables",
+      data: !!environmentVariables,
+    },
     { file: "PulumiEscConfig.ts", label: "pulumiConfig", data: !!pulumiConfig },
   ].map((pair) => ({ ...pair, schema: existsSync(join(typesDir, pair.file)) }));
 
@@ -168,12 +200,20 @@ const assertSchemasMatchEscData = (ctx: CliContext, { environmentVariables, pulu
  */
 const setupZodFallback = (childEnv: NodeJS.ProcessEnv): string => {
   const zodFallbackDir = mkdtempSync(join(tmpdir(), "yaws-zod-"));
-  execSync("npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund --prefer-offline zod", {
-    cwd: zodFallbackDir,
-    encoding: "utf-8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-  childEnv.NODE_PATH = [join(zodFallbackDir, "node_modules"), process.env.NODE_PATH].filter(Boolean).join(":");
+  execSync(
+    "npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund --prefer-offline zod",
+    {
+      cwd: zodFallbackDir,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    },
+  );
+  childEnv.NODE_PATH = [
+    join(zodFallbackDir, "node_modules"),
+    process.env.NODE_PATH,
+  ]
+    .filter(Boolean)
+    .join(":");
   warn(`"npm install zod --save-dev" is recommended to avoid type errors.`);
   return zodFallbackDir;
 };
@@ -185,7 +225,9 @@ export const runValidate = (ctx: CliContext, escValues: EscValues): never => {
   const { environmentVariables, pulumiConfig } = escValues;
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    YAWS_ESC_ENV_DATA: environmentVariables ? JSON.stringify(environmentVariables) : undefined,
+    YAWS_ESC_ENV_DATA: environmentVariables
+      ? JSON.stringify(environmentVariables)
+      : undefined,
     YAWS_ESC_CFG_DATA: pulumiConfig ? JSON.stringify(pulumiConfig) : undefined,
   };
 

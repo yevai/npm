@@ -9,7 +9,16 @@
 import { Command } from "commander";
 
 /** All yaws commands, one module per command in src/commands/. */
-export type CommandName = "deploy" | "preview" | "dev" | "refresh" | "destroy" | "unlock" | "bash" | "generate" | "validate";
+export type CommandName =
+  | "deploy"
+  | "preview"
+  | "dev"
+  | "refresh"
+  | "destroy"
+  | "unlock"
+  | "bash"
+  | "generate"
+  | "validate";
 
 export interface Target {
   organization?: string;
@@ -43,10 +52,18 @@ export const applyTargetEnv = (target: Target, command: string): void => {
  * Build a command with the standard `[target]` argument shared by every yaws
  * command, wiring the parsed target into the env-var contract before running.
  */
-export const createTargetCommand = (name: CommandName, description: string, run: () => Promise<void>, aliases: string[] = []): Command => {
+export const createTargetCommand = (
+  name: CommandName,
+  description: string,
+  run: () => Promise<void>,
+  aliases: string[] = [],
+): Command => {
   const cmd = new Command(name)
     .description(description)
-    .argument("[target]", "[org/]project/stack (also a valid ESC env); defaults to PULUMI_* env vars")
+    .argument(
+      "[target]",
+      "[org/]project/stack (also a valid ESC env); defaults to PULUMI_* env vars",
+    )
     .action(async (target?: string) => {
       if (target) {
         applyTargetEnv(parseTarget(target), name);

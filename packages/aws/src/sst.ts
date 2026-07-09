@@ -68,7 +68,8 @@ const getEffectivePulumiOrganization = () => {
     return envOrg;
   }
 
-  const hostOrg = process.env.HOST_PULUMI_ORG ?? process.env.HOST_PULUMI_ORGANIZATION;
+  const hostOrg =
+    process.env.HOST_PULUMI_ORG ?? process.env.HOST_PULUMI_ORGANIZATION;
 
   if (hostOrg) {
     DEFAULT_HOST_PULUMI_ORG = hostOrg;
@@ -112,14 +113,18 @@ const getProjectNamespace = (): string => {
     } catch {}
   }
 
-  throw new Error("PULUMI_PROJECT not set and could not read name from package.json");
+  throw new Error(
+    "PULUMI_PROJECT not set and could not read name from package.json",
+  );
 };
 
 /** Resolve the stage from the explicit argument or PULUMI_STACK. */
 const getStage = (stageArg?: string): string => {
   const stage = stageArg ?? process.env.PULUMI_STACK;
   if (!stage) {
-    throw new Error("Stage must be provided as argument or via PULUMI_STACK env var");
+    throw new Error(
+      "Stage must be provided as argument or via PULUMI_STACK env var",
+    );
   }
   return stage;
 };
@@ -171,7 +176,9 @@ export class CloudConfigV2 {
 
     this.organization = getEffectivePulumiOrganization();
     if (!this.organization) {
-      throw new Error("Could not determine Pulumi organization for CloudConfig");
+      throw new Error(
+        "Could not determine Pulumi organization for CloudConfig",
+      );
     }
 
     this.stage = getStage();
@@ -182,7 +189,12 @@ export class CloudConfigV2 {
     if (CloudConfigV2.configCache.has(escPath)) {
       this.config = CloudConfigV2.configCache.get(escPath)!;
     } else {
-      this.config = JSON.parse(pulumiCloudExecSyncShell(`pulumi esc get ${escPath} --show-secrets --value json`)).pulumiConfig ?? {};
+      this.config =
+        JSON.parse(
+          pulumiCloudExecSyncShell(
+            `pulumi esc get ${escPath} --show-secrets --value json`,
+          ),
+        ).pulumiConfig ?? {};
       CloudConfigV2.configCache.set(escPath, this.config);
     }
   }
@@ -203,7 +215,8 @@ export class CloudConfigV2 {
    */
   require(key: string): string {
     const value = this.get(key);
-    if (value === undefined) throw new Error(`Missing required config '${key}'`);
+    if (value === undefined)
+      throw new Error(`Missing required config '${key}'`);
     return value;
   }
 
@@ -323,9 +336,13 @@ export class CloudStackReferenceV2 {
     this.organization = getEffectivePulumiOrganization();
 
     if (!this.organization) {
-      throw new Error("Could not determine Pulumi organization for StackReference");
+      throw new Error(
+        "Could not determine Pulumi organization for StackReference",
+      );
     } else if (!name.includes("/") && !stage) {
-      throw new Error("Stage must be provided as argument or via PULUMI_STACK env var when using short stack name");
+      throw new Error(
+        "Stage must be provided as argument or via PULUMI_STACK env var when using short stack name",
+      );
     }
     this.stage = getStage(stage);
     this.name = name.includes("/") ? name : `${name}/${this.stage}`;
@@ -335,7 +352,11 @@ export class CloudStackReferenceV2 {
     if (CloudStackReferenceV2.stackCache.has(stackId)) {
       this.outputs = CloudStackReferenceV2.stackCache.get(stackId);
     } else {
-      this.outputs = JSON.parse(pulumiCloudExecSyncShell(`pulumi stack output --stack ${stackId} --json --show-secrets`));
+      this.outputs = JSON.parse(
+        pulumiCloudExecSyncShell(
+          `pulumi stack output --stack ${stackId} --json --show-secrets`,
+        ),
+      );
       CloudStackReferenceV2.stackCache.set(stackId, this.outputs);
     }
   }
@@ -361,7 +382,10 @@ export class CloudStackReferenceV2 {
    */
   requireOutput<T = any>(key: string): T {
     const v = this.getOutput<T>(key);
-    if (v === undefined) throw new Error(`Missing required output '${key}' from stack '${this.name}'`);
+    if (v === undefined)
+      throw new Error(
+        `Missing required output '${key}' from stack '${this.name}'`,
+      );
     return v;
   }
 }

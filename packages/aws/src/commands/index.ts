@@ -16,7 +16,9 @@ export type { CommandName, Target } from "../shared.js";
 /** Build the yaws commander program from the per-command modules. */
 export const createProgram = (): Command => {
   const program = new Command("yaws")
-    .description("SST + Pulumi deployment wrapper driven by Pulumi ESC environments")
+    .description(
+      "SST + Pulumi deployment wrapper driven by Pulumi ESC environments",
+    )
     .configureHelp({ showGlobalOptions: true });
 
   [

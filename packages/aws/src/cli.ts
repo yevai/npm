@@ -30,7 +30,8 @@ const COMMAND_ALIASES: Record<string, string> = {
   validate: "validate",
 };
 
-const toCanonicalCommand = (command: string): string | undefined => COMMAND_ALIASES[command.toLowerCase()];
+const toCanonicalCommand = (command: string): string | undefined =>
+  COMMAND_ALIASES[command.toLowerCase()];
 
 const argsFromEnv = (): string[] => {
   const envCommand = process.env.PULUMI_COMMAND;
@@ -46,7 +47,10 @@ const argsFromEnv = (): string[] => {
   return [command];
 };
 
-const isLegacyTargetFirst = (args: string[]): boolean => args.length === 2 && !!toCanonicalCommand(args[1]) && !toCanonicalCommand(args[0]);
+const isLegacyTargetFirst = (args: string[]): boolean =>
+  args.length === 2 &&
+  !!toCanonicalCommand(args[1]) &&
+  !toCanonicalCommand(args[0]);
 
 /**
  * Normalize legacy invocations onto commander's `yaws <command> [target]` form:
@@ -58,7 +62,9 @@ const normalizeArgs = (args: string[]): string[] => {
     return argsFromEnv();
   }
   if (isLegacyTargetFirst(args)) {
-    warn(`⚠ "yaws <target> <command>" is deprecated; use "yaws <command> <target>"`);
+    warn(
+      `⚠ "yaws <target> <command>" is deprecated; use "yaws <command> <target>"`,
+    );
     return [args[1].toLowerCase(), args[0]];
   }
   return args;

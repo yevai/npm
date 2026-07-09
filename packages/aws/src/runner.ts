@@ -57,13 +57,24 @@ export interface StackFlowOptions {
   execute: (run: StackRun) => Promise<void>;
 }
 
-export const runSst = ({ ctx, stackName, sstCommand, envFromPulumi }: StackRun): Promise<void> =>
-  runSstWithEnv(`npx sst ${sstCommand} --stage ${stackName}`, envFromPulumi, ctx.sstWorkDir);
+export const runSst = ({
+  ctx,
+  stackName,
+  sstCommand,
+  envFromPulumi,
+}: StackRun): Promise<void> =>
+  runSstWithEnv(
+    `npx sst ${sstCommand} --stage ${stackName}`,
+    envFromPulumi,
+    ctx.sstWorkDir,
+  );
 
 const writeEphemeralWorkspaceFiles = (ctx: CliContext): void => {
   if (!ctx.ephemeralPulumiDir) return;
 
-  const programDescription = ctx.packageJson.description || "Pulumi program for " + process.env.PULUMI_PROJECT;
+  const programDescription =
+    ctx.packageJson.description ||
+    "Pulumi program for " + process.env.PULUMI_PROJECT;
   const minimalPulumiYaml = `name: ${process.env.PULUMI_PROJECT}
 description: ${programDescription}
 runtime:
@@ -89,7 +100,10 @@ runtime:
 };
 
 const prepareWorkDir = (ctx: CliContext): void => {
-  copyFileSync(join(dirname(fileURLToPath(import.meta.url)), "pulumi-template.ts"), join(ctx.pulumiWorkDir, "index.ts"));
+  copyFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "pulumi-template.ts"),
+    join(ctx.pulumiWorkDir, "index.ts"),
+  );
 
   const nodeModulesLink = join(ctx.pulumiWorkDir, "node_modules");
   if (ctx.ephemeralPulumiDir && !existsSync(nodeModulesLink)) {
@@ -98,7 +112,11 @@ const prepareWorkDir = (ctx: CliContext): void => {
   }
 };
 
-const openStack = async (ctx: CliContext, stackName: string, providers: string[]): Promise<Stack> => {
+const openStack = async (
+  ctx: CliContext,
+  stackName: string,
+  providers: string[],
+): Promise<Stack> => {
   const { LocalWorkspace } = await import("@pulumi/pulumi/automation/index.js");
 
   const stack = await LocalWorkspace.createOrSelectStack(
@@ -114,10 +132,14 @@ const openStack = async (ctx: CliContext, stackName: string, providers: string[]
   );
 
   if (providers.length > 0) {
-    providers.forEach((provider) => info(`Added ESC Environment: ${provider}`, true));
+    providers.forEach((provider) =>
+      info(`Added ESC Environment: ${provider}`, true),
+    );
     await stack.addEnvironments(...providers);
   } else {
-    alert("Environment variable PULUMI_PROVIDERS is not set. This is likely unintended.");
+    alert(
+      "Environment variable PULUMI_PROVIDERS is not set. This is likely unintended.",
+    );
   }
 
   return stack;
@@ -145,8 +167,13 @@ const buildRunEnv = (providers: string[]): Record<string, string> => {
   };
 
   return {
-    ...resolveProviderEnvVars(HOST_PULUMI_ORG ?? HOST_PULUMI_ORGANIZATION, providers),
-    ...(Object.fromEntries(Object.entries(hostEnv).filter(([, v]) => v !== undefined)) as Record<string, string>),
+    ...resolveProviderEnvVars(
+      HOST_PULUMI_ORG ?? HOST_PULUMI_ORGANIZATION,
+      providers,
+    ),
+    ...(Object.fromEntries(
+      Object.entries(hostEnv).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>),
   };
 };
 
@@ -159,13 +186,21 @@ const buildRunEnv = (providers: string[]): Record<string, string> => {
  * Pulumi Cloud, pulling in upstream stack output changes and persisting them in
  * this stack's state.
  */
-export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive, execute }: StackFlowOptions): Promise<void> => {
+export const runStackFlow = async ({
+  name,
+  sstCommand,
+  skipPreview,
+  interactive,
+  execute,
+}: StackFlowOptions): Promise<void> => {
   const ctx = initContext();
 
   try {
     applyEscEnvironment(fetchEscValues(ctx));
   } catch (e) {
-    error(`Failed to retrieve ESC environment variables for ${ctx.escReference}: ${e}`);
+    error(
+      `Failed to retrieve ESC environment variables for ${ctx.escReference}: ${e}`,
+    );
   }
 
   process.env = sanitizeAwsEnv(process.env);
@@ -186,7 +221,9 @@ export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive,
 
     prepareWorkDir(ctx);
 
-    const providers = PULUMI_PROVIDERS ? PULUMI_PROVIDERS.split(",").map((p) => p.trim()) : [];
+    const providers = PULUMI_PROVIDERS
+      ? PULUMI_PROVIDERS.split(",").map((p) => p.trim())
+      : [];
     const stack = await openStack(ctx, PULUMI_STACK, providers);
 
     await maskStackSecretsForGithubActions(stack);
@@ -198,7 +235,13 @@ export const runStackFlow = async ({ name, sstCommand, skipPreview, interactive,
     const envFromPulumi = buildRunEnv(providers);
     info(`✓ Loaded environment`, true);
 
-    await execute({ ctx, stack, stackName: PULUMI_STACK, sstCommand, envFromPulumi });
+    await execute({
+      ctx,
+      stack,
+      stackName: PULUMI_STACK,
+      sstCommand,
+      envFromPulumi,
+    });
 
     if (!interactive) {
       info(`✓ Finished ${name} (SST: ${sstCommand}) for ${PULUMI_STACK}`);
@@ -216,7 +259,9 @@ export const loadEscContext = (): { ctx: CliContext; escValues: EscValues } => {
   try {
     return { ctx, escValues: fetchEscValues(ctx) };
   } catch (e) {
-    error(`Failed to retrieve ESC environment variables for ${ctx.escReference}: ${e}`);
+    error(
+      `Failed to retrieve ESC environment variables for ${ctx.escReference}: ${e}`,
+    );
     cleanupEphemeralWorkDir(ctx);
     process.exit(1);
   }

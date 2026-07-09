@@ -32,17 +32,32 @@ if (!SST_WORK_DIR) {
   process.exit(1);
 }
 
-const STACK_REF_KEYS = [...new Set([`${PULUMI_PROJECT}/${PULUMI_STACK}`, ...(STACK_REFERENCES ? STACK_REFERENCES.split(",") : [])])];
-const STACK_REFS_ACTUAL = STACK_REF_KEYS.map((ref) => new pulumi.StackReference(`${PULUMI_ORG}/${ref}`));
+const STACK_REF_KEYS = [
+  ...new Set([
+    `${PULUMI_PROJECT}/${PULUMI_STACK}`,
+    ...(STACK_REFERENCES ? STACK_REFERENCES.split(",") : []),
+  ]),
+];
+const STACK_REFS_ACTUAL = STACK_REF_KEYS.map(
+  (ref) => new pulumi.StackReference(`${PULUMI_ORG}/${ref}`),
+);
 
 if (IS_PREVIEW) {
   module.exports = STACK_REFS_ACTUAL[0].outputs.apply((outputs) => ({
     ...module.exports,
-    ...Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, pulumi.output(value)])),
+    ...Object.fromEntries(
+      Object.entries(outputs).map(([key, value]) => [
+        key,
+        pulumi.output(value),
+      ]),
+    ),
   }));
 } else {
   const outputsPath = join(SST_WORK_DIR, ".sst/outputs.json");
-  const newOutputs = JSON.parse(readFileSync(outputsPath, "utf-8")) as Record<string, any>;
+  const newOutputs = JSON.parse(readFileSync(outputsPath, "utf-8")) as Record<
+    string,
+    any
+  >;
   for (const [key, value] of Object.entries(newOutputs)) {
     module.exports[key] = pulumi.output(value);
   }
