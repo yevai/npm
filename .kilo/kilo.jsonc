@@ -1,4 +1,5 @@
 {
+  // Default Kilo Code schema is outdated and incomplete
   "$schema": "./kilo-schema.json",
   "mcp": {
     "tavily": {
