@@ -14,8 +14,6 @@ An AWS-focused bridge for [SST](https://sst.dev) and
 # TODOs
 
 - Port over unit, integration, and e2e tests for @yai/aws.
-- Implement https://github.com/ossf/scorecard-action.
-- Add signed releases for offline tgz distribution.
 - Add peerDependenciesMeta runtime import guards.
 - Implement weekly rolling MD5 updates.
 

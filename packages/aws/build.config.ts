@@ -1,4 +1,11 @@
-import { chmodSync, copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { defineBuildConfig } from "unbuild";
 
@@ -35,7 +42,10 @@ export default defineBuildConfig({
     },
     "build:done": async (ctx) => {
       const root = ctx.options.rootDir;
-      copyFileSync(join(root, "src/index.ts"), join(root, "dist/pulumi-template.ts"));
+      copyFileSync(
+        join(root, "src/index.ts"),
+        join(root, "dist/pulumi-template.ts"),
+      );
       const shebang = "#!/usr/bin/env node\n";
       for (const file of ["dist/cli.mjs", "dist/cli.cjs"]) {
         const filePath = join(root, file);
