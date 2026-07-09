@@ -38,6 +38,7 @@ yarn-error.log*
 .DS_Store
 *.pem
 tsconfig.tsbuildinfo
+.temp
 
 # Kilo
 .kilo/node_modules

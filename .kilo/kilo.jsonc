@@ -1,5 +1,5 @@
 {
-  "$schema": "https://app.kilo.ai/config.json",
+  "$schema": "./kilo-schema.json",
   "mcp": {
     "tavily": {
       "type": "local",
@@ -24,7 +24,6 @@
     "dimension": 3072,
     "openrouter": {
       "specificProvider": "google-ai-studio",
-      // provide "apiKey" for this to work.
     },
     "vectorStore": "qdrant",
     "qdrant": {
@@ -61,37 +60,73 @@
     "list": "allow",
     "lsp": "allow",
   },
-  "default_agent": "code",
+  "default_agent": "ask",
+  "model": "openrouter/x-ai/grok-4.5", // This is the default model if none is defined.
   "agent": {
+    "ask": {
+      "model": "openrouter/moonshotai/kimi-k2.7-code",
+      "variant": "thinking",
+    },
     "general": {
-      "model": "openrouter/z-ai/glm-5.2",
+      "model": "openrouter/x-ai/grok-4.5",
     },
     "explore": {
-      "model": "openrouter/moonshotai/kimi-k2.7-code",
+      "model": "zai-coding-plan/glm-5.2",
+      "variant": "high",
     },
-    "summary": {
-      "model": "google/gemini-3.5-flash",
+    "debug": {
+      "model": "openrouter/google/gemini-3.5-flash",
+      "variant": "high",
     },
     "plan": {
-      "model": "anthropic/claude-sonnet-5",
+      "model": "anthropic/claude-fable-5",
+      "variant": "low",
+    },
+    "build": {
+      "model": "openrouter/moonshotai/kimi-k2.7-code",
+    },
+    "code": {
+      "model": "openrouter/x-ai/grok-4.5",
     },
   },
-  "model": "openrouter/moonshotai/kimi-k2.7-code",
-  "subagent_model": "openrouter/z-ai/glm-5.2",
-  "small_model": "openrouter/z-ai/glm-5.2",
+  "subagent_model": "zai-coding-plan/glm-5.2", // Slow but extremely effective economically.
+  "subagent_variant_overrides": {
+    "zai-coding-plan/glm-5.2": "high",
+  },
+  "small_model": "openrouter/moonshotai/kimi-k2.7-code",
   "provider": {
     "openrouter": {
+      "options": {
+        "apiKey": "{env:OPENROUTER_API_KEY}",
+      },
       "models": {
+        "x-ai/grok-4.5": {
+          "limit": {
+            "context": 524288,
+            "input": 0,
+            "output": 524288,
+          },
+          "options": {
+            "provider": {
+              "only": ["xai/zdr"],
+              "allow_fallbacks": false,
+            },
+          },
+        },
         "z-ai/glm-5.2": {
           "limit": {
             "context": 1048576,
             "input": 0,
-            "output": 32768,
+            "output": 131072,
           },
           "options": {
             "provider": {
-              "only": ["parasail/fp4"],
-              "allow_fallbacks": false,
+              "max_price": {
+                "prompt": "1.5",
+                "completion": "5",
+              },
+              "sort": "throughput",
+              "allow_fallbacks": true,
             },
           },
         },
@@ -103,8 +138,30 @@
           },
           "options": {
             "provider": {
-              "only": ["together"],
-              "allow_fallbacks": false,
+              "max_price": {
+                "prompt": "1",
+                "completion": "4.1",
+              },
+              "sort": "throughput",
+              "allow_fallbacks": true,
+            },
+          },
+        },
+        "deepseek/deepseek-v4-flash": {
+          "limit": {
+            "context": 1048576,
+            "input": 0,
+            "output": 65536,
+          },
+          "options": {
+            "provider": {
+              "data_collection": "deny",
+              "sort": "throughput",
+              "allow_fallbacks": true,
+              "max_price": {
+                "prompt": "0.2",
+                "completion": "0.4",
+              },
             },
           },
         },
@@ -117,6 +174,32 @@
           "options": {
             "provider": {
               "only": ["google-ai-studio"],
+              "allow_fallbacks": false,
+            },
+          },
+        },
+        "anthropic/claude-fable-5": {
+          "limit": {
+            "context": 1000000,
+            "input": 0,
+            "output": 131072,
+          },
+          "options": {
+            "provider": {
+              "sort": "throughput",
+              "allow_fallbacks": false,
+            },
+          },
+        },
+        "anthropic/claude-sonnet-5": {
+          "limit": {
+            "context": 1000000,
+            "input": 0,
+            "output": 131072,
+          },
+          "options": {
+            "provider": {
+              "sort": "throughput",
               "allow_fallbacks": false,
             },
           },
@@ -135,22 +218,26 @@
       },
     },
     "anthropic": {
+      "options": {
+        "apiKey": "{env:ANTHROPIC_API_KEY}",
+      },
       "models": {
         "claude-fable-5": {
           "limit": {
             "context": 1000000,
             "input": 0,
-            "output": 128000,
+            "output": 131072,
           },
         },
         "claude-sonnet-5": {
           "limit": {
             "context": 1000000,
             "input": 0,
-            "output": 128000,
+            "output": 131072,
           },
         },
       },
     },
   },
+  "code_edit_display": "expanded",
 }
