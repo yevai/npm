@@ -1,5 +1,5 @@
 /**
- * Shared helpers for commander-based yaws commands.
+ * Shared helpers for commander-based pulumi-sst commands.
  *
  * The legacy entrypoint (src/cli.ts) is env-var driven; each command action
  * translates its parsed arguments into the same env-var contract
@@ -8,7 +8,7 @@
  */
 import { Command } from "commander";
 
-/** All yaws commands, one module per command in src/commands/. */
+/** All pulumi-sst commands, one module per command in src/commands/. */
 export type CommandName =
   | "deploy"
   | "preview"
@@ -49,7 +49,7 @@ export const applyTargetEnv = (target: Target, command: string): void => {
 };
 
 /**
- * Build a command with the standard `[target]` argument shared by every yaws
+ * Build a command with the standard `[target]` argument shared by every pulumi-sst
  * command, wiring the parsed target into the env-var contract before running.
  */
 export const createTargetCommand = (

@@ -1,5 +1,11 @@
 # @yai/example
 
+## 0.1.4
+
+### Patch Changes
+
+- 278d1d3: relax node versions and peer dep versions
+
 ## 0.1.3
 
 ### Patch Changes

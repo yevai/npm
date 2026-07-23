@@ -1,5 +1,12 @@
 # @yai/aws
 
+## 0.0.11
+
+### Patch Changes
+
+- 278d1d3: relax node versions and peer dep versions
+- 90a752c: changed 'bin' command from 'yaws' to 'pulumi-sst'
+
 ## 0.0.10
 
 ### Patch Changes

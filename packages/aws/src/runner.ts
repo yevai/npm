@@ -1,5 +1,5 @@
 /**
- * Shared execution flows for yaws commands.
+ * Shared execution flows for pulumi-sst commands.
  *
  * Each command lives in its own file (deploy.ts, generate.ts, ...) and declares its
  * commander subcommand there. This module owns the plumbing that is identical across

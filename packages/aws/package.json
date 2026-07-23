@@ -1,6 +1,6 @@
 {
   "name": "@yai/aws",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "type": "module",
   "main": "dist/sst.cjs",
   "module": "dist/sst.mjs",
@@ -20,7 +20,7 @@
     "build": "rm -rf dist && unbuild"
   },
   "bin": {
-    "yaws": "./dist/cli.mjs"
+    "pulumi-sst": "./dist/cli.mjs"
   },
   "files": [
     "dist"

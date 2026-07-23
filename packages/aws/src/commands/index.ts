@@ -13,9 +13,9 @@ import { validateCommand } from "./validate.js";
 export { applyTargetEnv, parseTarget } from "../shared.js";
 export type { CommandName, Target } from "../shared.js";
 
-/** Build the yaws commander program from the per-command modules. */
+/** Build the pulumi-sst commander program from the per-command modules. */
 export const createProgram = (): Command => {
-  const program = new Command("yaws")
+  const program = new Command("pulumi-sst")
     .description(
       "SST + Pulumi deployment wrapper driven by Pulumi ESC environments",
     )
