@@ -64,14 +64,26 @@ export const createTargetCommand = (
       "[target]",
       "[org/]project/stack (also a valid ESC env); defaults to PULUMI_* env vars",
     )
-    .action(async (target?: string) => {
-      if (target) {
-        applyTargetEnv(parseTarget(target), name);
-      } else {
-        process.env.PULUMI_COMMAND = name;
-      }
-      await run();
-    });
+    .option(
+      "--use-host-aws",
+      "keep the host's AWS profile and credentials instead of stripping them",
+    )
+    .action(
+      async (
+        target: string | undefined,
+        options: { useHostAws?: boolean },
+      ) => {
+        if (options.useHostAws) {
+          process.env.PSST_USE_HOST_AWS = "1";
+        }
+        if (target) {
+          applyTargetEnv(parseTarget(target), name);
+        } else {
+          process.env.PULUMI_COMMAND = name;
+        }
+        await run();
+      },
+    );
   aliases.forEach((alias) => cmd.alias(alias));
   return cmd;
 };

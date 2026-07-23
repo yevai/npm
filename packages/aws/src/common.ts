@@ -51,9 +51,11 @@ export const sanitizeAwsEnv = (
   baseEnv: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv => {
   const cleaned = { ...baseEnv };
-  delete cleaned.AWS_PROFILE;
-  delete cleaned.AWS_DEFAULT_PROFILE;
-  cleaned.AWS_CONFIG_FILE = "/dev/null";
+  if (!cleaned.PSST_USE_HOST_AWS) {
+    delete cleaned.AWS_PROFILE;
+    delete cleaned.AWS_DEFAULT_PROFILE;
+    cleaned.AWS_CONFIG_FILE = "/dev/null";
+  }
   return cleaned;
 };
 
