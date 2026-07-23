@@ -20,9 +20,7 @@ export const COLORS = {
 } as const;
 
 export const info = (message: string, secondary = false): void => {
-  console.log(
-    `${secondary ? COLORS.green : COLORS.cyan}${message}${COLORS.reset}`,
-  );
+  console.log(`${secondary ? COLORS.green : COLORS.cyan}${message}${COLORS.reset}`);
 };
 
 export const warn = (message: string): void => {
@@ -47,9 +45,7 @@ export const setEnv = (key: string, value: string, source: string): void => {
   process.env[key] = value;
 };
 
-export const sanitizeAwsEnv = (
-  baseEnv: NodeJS.ProcessEnv,
-): NodeJS.ProcessEnv => {
+export const sanitizeAwsEnv = (baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
   const cleaned = { ...baseEnv };
   if (!cleaned.PSST_USE_HOST_AWS) {
     delete cleaned.AWS_PROFILE;
@@ -58,6 +54,12 @@ export const sanitizeAwsEnv = (
   }
   return cleaned;
 };
+
+/** True when the host's AWS profile/credentials should be used (--use-host-aws). */
+export const useHostAws = (): boolean => Boolean(process.env.PSST_USE_HOST_AWS);
+
+/** Env var keys that carry AWS credentials/config a provider might inject. */
+export const isAwsCredentialKey = (key: string): boolean => key.startsWith("AWS_");
 
 export const COLOR_ENV = {
   FORCE_COLOR: "1",
@@ -121,9 +123,7 @@ const loadProjectPackageJson = (sstWorkDir: string): PackageJson => {
     fatal(`package.json not found in SST_WORK_DIR: ${sstWorkDir}`);
   }
 
-  const packageJson: PackageJson = JSON.parse(
-    readFileSync(packageJsonPath, "utf-8"),
-  );
+  const packageJson: PackageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
   if (!packageJson.name) {
     fatal(`package.json does not contain the required field "name"`);
   }
@@ -135,18 +135,14 @@ const resolvePulumiWorkDir = (): {
   ephemeralPulumiDir: boolean;
 } => {
   if (!process.env.PULUMI_WORK_DIR) {
-    process.env.PULUMI_WORK_DIR = mkdtempSync(
-      join(process.env.RUNNER_TEMP ?? tmpdir(), "pulumi-"),
-    );
+    process.env.PULUMI_WORK_DIR = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), "pulumi-"));
     return {
       pulumiWorkDir: process.env.PULUMI_WORK_DIR,
       ephemeralPulumiDir: true,
     };
   }
   if (!existsSync(join(process.env.PULUMI_WORK_DIR, "Pulumi.yaml"))) {
-    fatal(
-      `Fatal: Pulumi.yaml not found in PULUMI_WORK_DIR: ${process.env.PULUMI_WORK_DIR}`,
-    );
+    fatal(`Fatal: Pulumi.yaml not found in PULUMI_WORK_DIR: ${process.env.PULUMI_WORK_DIR}`);
   }
   return {
     pulumiWorkDir: process.env.PULUMI_WORK_DIR!,
@@ -155,11 +151,9 @@ const resolvePulumiWorkDir = (): {
 };
 
 const resolveEscParts = (): string[] =>
-  [
-    process.env.PULUMI_ORG ?? process.env.PULUMI_ORGANIZATION,
-    process.env.PULUMI_PROJECT,
-    process.env.PULUMI_STACK,
-  ].filter(Boolean) as string[];
+  [process.env.PULUMI_ORG ?? process.env.PULUMI_ORGANIZATION, process.env.PULUMI_PROJECT, process.env.PULUMI_STACK].filter(
+    Boolean,
+  ) as string[];
 
 /**
  * Resolve and validate the CLI context. Call this AFTER the target env vars
@@ -179,9 +173,7 @@ export const initContext = (): CliContext => {
     sstWorkDir,
     sstConfigPath,
     packageJson,
-    allDependencies: Object.keys(packageJson.dependencies ?? {}).concat(
-      Object.keys(packageJson.devDependencies ?? {}),
-    ),
+    allDependencies: Object.keys(packageJson.dependencies ?? {}).concat(Object.keys(packageJson.devDependencies ?? {})),
     pulumiWorkDir,
     ephemeralPulumiDir,
     escParts,
@@ -221,21 +213,9 @@ export const fetchEscValues = (ctx: CliContext): EscValues =>
  * PULUMI_PROJECT, PULUMI_ORG*) are never adopted from ESC.
  */
 export const applyEscEnvironment = (values: EscValues): void => {
-  const {
-    PULUMI_PROVIDERS,
-    STACK_REFERENCES,
-    PULUMI_STACK,
-    PULUMI_COMMAND,
-    PULUMI_PROJECT,
-    PULUMI_ORGANIZATION,
-    PULUMI_ORG,
-    ...otherEnv
-  } = values.environmentVariables ?? {};
-  (void PULUMI_STACK,
-    PULUMI_COMMAND,
-    PULUMI_PROJECT,
-    PULUMI_ORGANIZATION,
-    PULUMI_ORG);
+  const { PULUMI_PROVIDERS, STACK_REFERENCES, PULUMI_STACK, PULUMI_COMMAND, PULUMI_PROJECT, PULUMI_ORGANIZATION, PULUMI_ORG, ...otherEnv } =
+    values.environmentVariables ?? {};
+  (void PULUMI_STACK, PULUMI_COMMAND, PULUMI_PROJECT, PULUMI_ORGANIZATION, PULUMI_ORG);
 
   Object.keys(otherEnv).forEach((key) => {
     info(`Added ESC Environment Variable: ${key}`, true);
@@ -251,26 +231,19 @@ export const applyEscEnvironment = (values: EscValues): void => {
         info(`Added Stack Reference: ${ref}`, true);
       });
     } else if (process.env.STACK_REFERENCES !== STACK_REFERENCES) {
-      warn(
-        `⚠ Overriding STACK_REFERENCES from ${process.env.STACK_REFERENCES} to ${STACK_REFERENCES}`,
-      );
+      warn(`⚠ Overriding STACK_REFERENCES from ${process.env.STACK_REFERENCES} to ${STACK_REFERENCES}`);
     }
     process.env.STACK_REFERENCES = STACK_REFERENCES;
   }
 };
 
 /** Resolve the environmentVariables of each ESC provider environment directly. */
-export const resolveProviderEnvVars = (
-  organization: string | undefined,
-  providers: string[],
-): Record<string, string> => {
+export const resolveProviderEnvVars = (organization: string | undefined, providers: string[]): Record<string, string> => {
   const merged: Record<string, string> = {};
+  const hostAws = useHostAws();
 
   for (const provider of providers) {
-    const envRef =
-      provider.split("/").length >= 3 || !organization
-        ? provider
-        : `${organization}/${provider}`;
+    const envRef = provider.split("/").length >= 3 || !organization ? provider : `${organization}/${provider}`;
     try {
       const opened = JSON.parse(
         execSync(`pulumi env open ${envRef} --format json`, {
@@ -278,9 +251,11 @@ export const resolveProviderEnvVars = (
           stdio: ["ignore", "pipe", "ignore"],
         }),
       );
-      for (const [key, value] of Object.entries(
-        opened.environmentVariables ?? {},
-      )) {
+      for (const [key, value] of Object.entries(opened.environmentVariables ?? {})) {
+        if (hostAws && isAwsCredentialKey(key)) {
+          warn(`Skipped ${key} from ${envRef} (--use-host-aws)`);
+          continue;
+        }
         merged[key] = String(value);
       }
       info(`Resolved ESC Environment: ${envRef}`, true);
@@ -293,11 +268,7 @@ export const resolveProviderEnvVars = (
 };
 
 /** Spawn a bash shell command with inherited stdio and a sanitized, color-forced env. */
-export const spawnWithEnv = (
-  shellCommand: string,
-  extraEnv: Record<string, string>,
-  cwd: string,
-): Promise<void> => {
+export const spawnWithEnv = (shellCommand: string, extraEnv: Record<string, string>, cwd: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     const child = spawn("/bin/bash", ["-c", shellCommand], {
       stdio: "inherit",
@@ -317,11 +288,7 @@ export const spawnWithEnv = (
   });
 };
 
-export const runSstWithEnv = async (
-  shellCommand: string,
-  extraEnv: Record<string, string>,
-  cwd: string,
-): Promise<void> => {
+export const runSstWithEnv = async (shellCommand: string, extraEnv: Record<string, string>, cwd: string): Promise<void> => {
   try {
     await spawnWithEnv(shellCommand, extraEnv, cwd);
     info(`✓ SST completed successfully`, true);
@@ -375,9 +342,7 @@ const extractSecretValues = (value: string): string[] => {
 };
 
 /** Collect the unique maskable strings across all secret config entries. */
-const collectSecretConfigValues = (
-  allConfig: Record<string, { value: string; secret?: boolean }>,
-): Set<string> => {
+const collectSecretConfigValues = (allConfig: Record<string, { value: string; secret?: boolean }>): Set<string> => {
   const secretValues = new Set<string>();
   for (const { value, secret } of Object.values(allConfig)) {
     if (!secret || !value) continue;
