@@ -2,10 +2,7 @@ This repository is being prepared for release, do not use any packages until v1.
 
 # Contributing
 
-1. Make your changes
-2. `npm run changes` in root
-3. `npm run version` in root
-4. Open a pull request
+After you've made your changes, commit them. Run `npm run changes` in root. Without any other git commands, also run: `npm run version` and open a pull request.
 
 # TODOs
 
