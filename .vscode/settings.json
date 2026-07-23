@@ -2,7 +2,8 @@
   "json.schemaDownload.trustedDomains": {
     "turborepo.dev": true,
     "app.kilo.ai": true,
-    "unpkg.com": true
+    "unpkg.com": true,
+    "yev.ai": true
   },
   "files.watcherExclude": {
     "**/node_modules/**": true,
@@ -13,7 +14,9 @@
     "**/venv/**": true,
     "**/.turbo/**": true,
     "**/.kkilo/**": true,
-    "**/refs/**": true
+    "**/refs/**": true,
+    "**/.chronos/**": true,
+    "**/.lovelace/**": true
   },
   "editor.formatOnSave": true,
   "editor.insertSpaces": true,
@@ -82,8 +85,344 @@
     }
   },
   "terminal.integrated.defaultProfile.linux": "zsh",
-  "kilo-code.new.autocomplete.model": "mercury-edit-2",
-  "kilo-code.new.autocomplete.provider": "inception",
+  "yevai-lovelace.defaults": {
+    "quorumSafe": true,
+    "consensusBinding": "decisions",
+    "heartbeatIntervalMs": 2500,
+    "peerTimeoutMs": 10000,
+    "fleet": { "minAgents": 12, "maxAgents": 256 },
+    "topologies": {
+      "selector": "chronos"
+    },
+    "migration": {
+      "mode": "drain-then-switch",
+      "drainTimeoutMs": 60000
+    },
+    "telemetry": {
+      "emitGraphSnapshots": true,
+      "snapshotIntervalMs": 30000
+    },
+    "context": {
+      "budget": { "pctOfModelMax": 0.7 },
+      "dynamicCompression": true,
+      "compressionTrigger": { "hintAtPctOfBudget": 0.45, "forceAtPctOfBudget": 0.65 }
+    }
+  },
+  "yevai-lovelace.topologies": {
+    "swarm": {
+      "enabled": true,
+      "deprecated": true,
+      "maxChronosVersion": "1.291.0",
+      "population": {
+        "initial": { "pctOfFleet": 0.06, "floor": 4 },
+        "min": { "pctOfFleet": 0.03, "floor": 3 },
+        "max": { "pctOfFleet": 0.125, "floor": 8 },
+        "scaleMetric": "task-queue-depth"
+      },
+      "neighborhood": {
+        "kNearest": 5,
+        "metric": "embedding-cosine",
+        "refreshIntervalMs": 5000
+      },
+
+      "dynamics": {
+        "inertia": 0.72,
+        "cognitiveWeight": 1.5,
+        "socialWeight": 1.5,
+        "velocityClamp": 0.2
+      },
+      "diversityPressure": 0.15,
+      "convergence": { "epsilon": 0.01, "stallRounds": 5, "action": "commit" },
+      "taskClaim": {
+        "mode": "optimistic-lock",
+        "ttlMs": 45000,
+        "maxClaimsPerAgent": 2
+      }
+    },
+    "hive": {
+      "enabled": true,
+      "queen": {
+        "election": "raft",
+        "termMs": 300000,
+        "failover": "hot-standby",
+        "standbyCount": 2,
+        "contextBudget": { "pctOfModelMax": 0.9 }
+      },
+      "maxAgents": 128,
+      "castes": {
+        "scouts": { "count": { "pctOfFleet": 0.08, "floor": 1 }, "explorationRatio": 0.8 },
+        "nurses": { "count": { "pctOfFleet": 0.04, "floor": 1 }, "duty": "context-pruning" },
+        "workers": { "count": "remainder", "roles": ["implement", "test", "review"] }
+      },
+      "broodScaling": {
+        "enabled": true,
+        "triggerQueueDepth": 10,
+        "cooldownMs": 60000,
+        "maxBroodPerCycle": { "pctOfFleet": 0.015, "floor": 2 }
+      },
+      "waggle": {
+        "advertisementTtlMs": 30000,
+        "qualitySignal": "expected-value",
+        "recruitmentThreshold": 0.6
+      },
+      "comb": {
+        "backend": "workspace",
+        "maxCells": 1024,
+        "cellTtlMs": 900000
+      }
+    },
+    "btree": {
+      "enabled": true,
+      "order": { "minChildren": 3, "maxChildren": 7 },
+      "depth": { "max": 4 },
+      "split": {
+        "metric": "coordinator-load",
+        "threshold": 0.8,
+        "strategy": "median"
+      },
+      "merge": { "threshold": 0.25, "hysteresisMs": 120000 },
+      "promotion": {
+        "policy": "highest-success-rate",
+        "probationRounds": 3
+      },
+      "leafBatchSize": 5,
+      "rebalance": { "intervalMs": 60000, "maxMovesPerCycle": 3 },
+      "rootFailover": "promote-leftmost"
+    },
+    "kademlia": {
+      "enabled": true,
+      "keyspaceBits": 160,
+      "keying": {
+        "source": "capability-embedding",
+        "embeddingModel": "default",
+        "rekeyOnDrift": true,
+        "driftThreshold": 0.3
+      },
+      "buckets": {
+        "k": 8,
+        "refreshIntervalMs": 120000,
+        "eviction": "least-recently-alive"
+      },
+      "lookup": {
+        "alpha": 3,
+        "maxHops": 20,
+        "mode": "iterative"
+      },
+      "storage": {
+        "replicationFactor": 3,
+        "republishIntervalMs": 300000,
+        "expireMs": 3600000
+      },
+      "sybilResistance": { "requireProofOfWork": false, "maxAgentsPerHost": 4 }
+    },
+    "stigmergic": {
+      "enabled": true,
+      "substrate": {
+        "backend": "workspace",
+        "granularity": "file",
+        "maxMarkers": 4096
+      },
+      "maxAgents": 64,
+      "pheromone": {
+        "depositAmount": 1.0,
+        "successMultiplier": 2.0,
+        "failureDeposit": -0.5,
+        "evaporationHalfLifeMs": 600000,
+        "diffusion": 0.1,
+        "saturationCap": 10.0
+      },
+      "sensing": {
+        "radius": 2,
+        "sampleTopK": 5
+      },
+      "behavior": {
+        "explorationRate": 0.2,
+        "trailFollowThreshold": 0.4,
+        "antiConvoy": true
+      }
+    },
+    "sierpinski": {
+      "enabled": true,
+      "branching": 3,
+      "maxAgents": 121,
+      "recursion": {
+        "maxDepth": 4,
+        "subdivideTrigger": "task-complexity",
+        "subdivideThreshold": 0.7,
+        "collapseThreshold": 0.2
+      },
+      "apex": {
+        "role": "arbiter",
+        "rotationMs": 540000,
+        "escalationOnly": true
+      },
+      "selfSimilarity": {
+        "enforceUniformPolicy": true,
+        "policyHash": "auto"
+      },
+      "shortcuts": {
+        "enabled": true,
+        "perLevel": 1,
+        "attachment": "same-level-random"
+      }
+    },
+
+    "hypertree": {
+      "enabled": true,
+      "levels": 3,
+      "leafFanout": 4,
+      "maxAgents": 62,
+      "bandwidthProfile": {
+        "budgetByLevel": { "pctOfModelMax": [0.35, 0.6, 0.9] },
+        "oversubscription": 1.5
+      },
+      "roots": {
+        "count": 3,
+        "coordination": "raft",
+        "ecmpRouting": "hash-by-task"
+      },
+      "uplinks": { "redundancy": 2, "failover": "instant" },
+      "aggregation": {
+        "summarizeAtEachLevel": true,
+        "compressionRatioTarget": 0.3
+      }
+    },
+    "kautz": {
+      "enabled": true,
+      "degree": 3,
+      "diameter": 3,
+      "maxAgents": 36,
+      "sizing": {
+        "mode": "virtual-nodes",
+        "virtualsPerAgent": "auto",
+        "rebuildOnMembershipChange": "incremental"
+      },
+      "routing": {
+        "strategy": "string-shift",
+        "disjointPaths": 3,
+        "loadBalance": "round-robin-paths"
+      },
+      "faultTolerance": {
+        "bypassFailedHops": true,
+        "maxDetourLength": 2
+      }
+    },
+    "expander": {
+      "enabled": true,
+      "construction": "random-regular",
+      "degree": 8,
+      "spectralGap": {
+        "target": 0.3,
+        "measureIntervalMs": 60000,
+        "rewireOnDegrade": true,
+        "rewireBatchSize": 2
+      },
+      "mixing": {
+        "targetMixingTimeRounds": "auto",
+        "walkersPerBroadcast": 3
+      },
+      "sampling": {
+        "peerSampleSize": 3,
+        "walkLength": "auto"
+      },
+      "byzantine": {
+        "assumeFaultFraction": 0.25,
+        "quorumSampleSize": 7
+      }
+    }
+  },
+  "yevai-chronos.defaults": {
+    "type": "raft",
+    "minPeers": 7,
+    "minQuorum": 5,
+    "quorum": {
+      "degradedMode": {
+        "policy": "read-only",
+        "staleReadsAllowed": true,
+        "autoRecover": true
+      }
+    },
+    "scope": {
+      "decisions": [
+        "merge-approval",
+        "task-assignment",
+        "topology-change",
+        "config-mutation",
+        "agent-eviction",
+        "group-accept",
+        "group-delegate",
+        "agent-quarantine"
+      ],
+      "excluded": ["observations", "telemetry", "hive-*", "swarm-*"],
+      "proposalTimeoutMs": 30000,
+      "maxPendingProposals": 16
+    },
+    "raft": {
+      "timing": {
+        "heartbeatIntervalMs": 1000,
+        "electionTimeoutMinMs": 8000,
+        "electionTimeoutMaxMs": 15000,
+        "rpcTimeoutMs": 5000,
+        "clockDriftToleranceMs": 500
+      },
+
+      "log": {
+        "persistence": {
+          "backend": "workspace",
+          "fsyncPolicy": "batch",
+          "fsyncBatchMs": 100
+        },
+        "snapshot": { "thresholdEntries": 1024, "intervalMs": 300000 }
+      },
+      "election": {
+        "preVote": true,
+        "checkQuorum": true,
+        "leaderStickiness": true,
+        "priorities": {
+          "enabled": true,
+          "byRole": {
+            "queen": 100,
+            "root": 90,
+            "apex": 80,
+            "worker": 10
+          }
+        },
+        "maxConsecutiveTerms": 3
+      },
+      "leadership": {
+        "termLimitMs": 900000,
+        "transferOnBudgetUsage": 0.75,
+        "transferOnShutdown": true,
+        "preferredSuccessor": "highest-priority-freshest-context"
+      },
+      "membership": {
+        "changeProtocol": "joint-consensus",
+        "autoJoin": {
+          "enabled": true,
+          "asLearner": true,
+          "promotionLagThreshold": 100
+        },
+        "learners": {
+          "max": { "pctOfFleet": 0.125, "floor": 2 },
+          "roles": ["scout", "observer", "nurse"]
+        },
+        "eviction": {
+          "deadPeerTimeoutMs": 60000,
+          "requiresConsensus": true,
+          "cooldownBeforeRejoinMs": 120000
+        },
+        "witnesses": { "enabled": false, "count": 1 }
+      },
+      "faultModel": {
+        "assumed": "crash-recovery",
+        "byzantineEscalation": {
+          "detect": true,
+          "onDetect": "quarantine-vote",
+          "quarantineVotes": 3
+        }
+      }
+    }
+  },
   "js/ts.updateImportsOnFileMove.enabled": "always",
   "js/ts.tsdk.path": "node_modules/typescript/lib",
   "js/ts.suggest.autoImports": true
