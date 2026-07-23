@@ -6,7 +6,7 @@
   "scripts": {
     "build": "turbo run build",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "changes": "changeset && git add .changeset/*.md && git commit -m \"docs(changeset): add new changeset\"",
+    "changes": "git diff --quiet && git diff --cached --quiet && changeset && git add .changeset/*.md && git commit -m \"docs(changeset): add new changeset\"",
     "version": "git diff --quiet && git diff --cached --quiet && changeset version && pnpm install && (git diff --quiet || git commit --amend --no-edit -a)",
     "lint": "turbo run lint"
   },
