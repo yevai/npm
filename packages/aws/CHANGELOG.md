@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.13
+
+### Patch Changes
+
+- b0ff141: --use-host-aws hardening
+
 ## 0.0.12
 
 ### Patch Changes
