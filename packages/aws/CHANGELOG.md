@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.12
+
+### Patch Changes
+
+- f872af3: add --use-host-aws to bypass AWS credential security isolation
+
 ## 0.0.11
 
 ### Patch Changes
