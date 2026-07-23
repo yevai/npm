@@ -48,3 +48,4 @@ tsconfig.tsbuildinfo
 .kilo/bun.lock
 .kilo/yarn.lock
 .kilo/agent-manager.json
+.temp

@@ -1,5 +1,13 @@
 # @yai/aws
 
+## 0.0.10
+
+### Patch Changes
+
+- ecc3d74: fix tsconfig import
+- 41932e9: relax peer dependency versions
+- 71cc83e: refactor out FS buffers
+
 ## 0.0.9
 
 ### Patch Changes

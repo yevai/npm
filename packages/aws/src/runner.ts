@@ -97,6 +97,24 @@ runtime:
       2,
     ),
   );
+  writeFileSync(
+    join(ctx.pulumiWorkDir, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: "es2022",
+          module: "nodenext",
+          moduleResolution: "nodenext",
+          types: ["node"],
+          esModuleInterop: true,
+          skipLibCheck: true,
+          strict: false,
+        },
+      },
+      null,
+      2,
+    ),
+  );
 };
 
 const prepareWorkDir = (ctx: CliContext): void => {
