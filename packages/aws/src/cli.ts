@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * yaws CLI entry point: a thin commander shim.
+ * pulumi-sst CLI entry point: a thin commander shim.
  *
  * Each command lives in its own module under `commands/`; cross-command helpers
  * live in `common.ts` and the shared execution flows in `runner.ts`. This file
@@ -53,9 +53,9 @@ const isLegacyTargetFirst = (args: string[]): boolean =>
   !toCanonicalCommand(args[0]);
 
 /**
- * Normalize legacy invocations onto commander's `yaws <command> [target]` form:
- * - `yaws` with PULUMI_COMMAND (and PULUMI_STACK etc.) set via env vars
- * - `yaws <project>/<stack> <command>` (target-first argument order)
+ * Normalize legacy invocations onto commander's `pulumi-sst <command> [target]` form:
+ * - `pulumi-sst` with PULUMI_COMMAND (and PULUMI_STACK etc.) set via env vars
+ * - `pulumi-sst <project>/<stack> <command>` (target-first argument order)
  */
 const normalizeArgs = (args: string[]): string[] => {
   if (args.length === 0) {
@@ -63,7 +63,7 @@ const normalizeArgs = (args: string[]): string[] => {
   }
   if (isLegacyTargetFirst(args)) {
     warn(
-      `⚠ "yaws <target> <command>" is deprecated; use "yaws <command> <target>"`,
+      `⚠ "pulumi-sst <target> <command>" is deprecated; use "pulumi-sst <command> <target>"`,
     );
     return [args[1].toLowerCase(), args[0]];
   }

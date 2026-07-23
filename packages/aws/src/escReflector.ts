@@ -21,8 +21,8 @@ import { jsonToZod } from "json-to-zod";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { cleanupEphemeralWorkDir, error, info, warn } from "./common.js";
 import type { CliContext, EscValues } from "./common.js";
+import { cleanupEphemeralWorkDir, error, info, warn } from "./common.js";
 
 /**
  * Inline CJS harness evaluated by tsx in SST_WORK_DIR.
@@ -35,8 +35,8 @@ const { resolve } = require("path");
 let exitCode = 0;
 
 const schemas = [
-  { name: "PulumiEscEnvironment", dataEnv: "YAWS_ESC_ENV_DATA", schemaFile: "./types/PulumiEscEnvironment.ts" },
-  { name: "PulumiEscConfig",      dataEnv: "YAWS_ESC_CFG_DATA", schemaFile: "./types/PulumiEscConfig.ts" },
+  { name: "PulumiEscEnvironment", dataEnv: "PSST_ESC_ENV_DATA", schemaFile: "./types/PulumiEscEnvironment.ts" },
+  { name: "PulumiEscConfig",      dataEnv: "PSST_ESC_CFG_DATA", schemaFile: "./types/PulumiEscConfig.ts" },
 ];
 
 for (const { name, dataEnv, schemaFile } of schemas) {
@@ -199,7 +199,7 @@ const assertSchemasMatchEscData = (
  * via NODE_PATH when the project does not depend on zod. Returns the dir to clean up.
  */
 const setupZodFallback = (childEnv: NodeJS.ProcessEnv): string => {
-  const zodFallbackDir = mkdtempSync(join(tmpdir(), "yaws-zod-"));
+  const zodFallbackDir = mkdtempSync(join(tmpdir(), "pulumi-sst-zod-"));
   execSync(
     "npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund --prefer-offline zod",
     {
@@ -225,10 +225,10 @@ export const runValidate = (ctx: CliContext, escValues: EscValues): never => {
   const { environmentVariables, pulumiConfig } = escValues;
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    YAWS_ESC_ENV_DATA: environmentVariables
+    PSST_ESC_ENV_DATA: environmentVariables
       ? JSON.stringify(environmentVariables)
       : undefined,
-    YAWS_ESC_CFG_DATA: pulumiConfig ? JSON.stringify(pulumiConfig) : undefined,
+    PSST_ESC_CFG_DATA: pulumiConfig ? JSON.stringify(pulumiConfig) : undefined,
   };
 
   const userHasZod = ctx.allDependencies.includes("zod");

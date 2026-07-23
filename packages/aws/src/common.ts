@@ -1,5 +1,5 @@
 /**
- * Cross-command helpers shared by every yaws command.
+ * Cross-command helpers shared by every pulumi-sst command.
  *
  * Everything here applies to ALL commands: logging, env handling, working-directory
  * context resolution, Pulumi ESC access, and child-process spawning. Command-specific
