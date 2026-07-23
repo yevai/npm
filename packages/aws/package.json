@@ -36,9 +36,9 @@
     "directory": "packages/aws"
   },
   "peerDependencies": {
-    "@pulumi/aws": "7.35.0",
-    "@pulumi/pulumi": "3.250.0",
-    "sst": "4.17.0"
+    "@pulumi/aws": "^7.35.0",
+    "@pulumi/pulumi": "^3.250.0",
+    "sst": "^4.17.0"
   },
   "peerDependenciesMeta": {
     "@pulumi/pulumi": {
