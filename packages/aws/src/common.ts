@@ -164,7 +164,25 @@ export const initContext = (): CliContext => {
   const { sstWorkDir, sstConfigPath } = resolveSstWorkDir();
   const packageJson = loadProjectPackageJson(sstWorkDir);
 
-  process.env.PULUMI_PROJECT ??= packageJson.name;
+  if (packageJson.name.includes("/")) {
+    if (packageJson.name.includes("@")) {
+      alert(
+        `⚠⚠ package.json name "${packageJson.name}" looks like a scoped npm package — ` +
+          `splitting it into project/stack is almost certainly wrong. ` +
+          `Set PULUMI_PROJECT and PULUMI_STACK explicitly.`,
+      );
+    }
+    const [project, stack] = packageJson.name.split("/", 2);
+    process.env.PULUMI_PROJECT ??= project;
+    if (process.env.PULUMI_STACK) {
+      warn(`PULUMI_STACK "${process.env.PULUMI_STACK}" overrides stack "${stack}" inferred from package.json`);
+    } else {
+      process.env.PULUMI_STACK = stack;
+      info(`Inferred stack "${stack}" from package.json`);
+    }
+  } else {
+    process.env.PULUMI_PROJECT ??= packageJson.name;
+  }
 
   const { pulumiWorkDir, ephemeralPulumiDir } = resolvePulumiWorkDir();
   const escParts = resolveEscParts();

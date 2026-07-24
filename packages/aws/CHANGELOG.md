@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.14
+
+### Patch Changes
+
+- 46b2f38: infer stack from non-scoped package.jsons with a "/" if no overrides are provided
+
 ## 0.0.13
 
 ### Patch Changes
