@@ -38,13 +38,17 @@
   "peerDependencies": {
     "@pulumi/aws": "^7.35.0",
     "@pulumi/pulumi": "^3.250.0",
-    "sst": "^4.17.0"
+    "sst": "^4.17.0",
+    "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
     "@pulumi/pulumi": {
       "optional": true
     },
     "@pulumi/aws": {
+      "optional": true
+    },
+    "zod": {
       "optional": true
     }
   },

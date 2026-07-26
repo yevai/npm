@@ -8,9 +8,22 @@
 import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
+import type { z } from "zod";
 
 let DEFAULT_HOST_PULUMI_ORG = "";
 let DEFAULT_PROJECT_NAMESPACE = "";
+
+/**
+ * Checks if zod is available at runtime.
+ * @throws {Error} If zod is not installed, with instructions on how to install it.
+ */
+const requireZod = (): void => {
+  try {
+    require.resolve("zod");
+  } catch {
+    throw new Error("Zod schema validation requires the 'zod' package to be installed.");
+  }
+};
 
 /**
  * Executes a shell command using the Pulumi CLI with the appropriate environment context.
@@ -68,8 +81,7 @@ const getEffectivePulumiOrganization = () => {
     return envOrg;
   }
 
-  const hostOrg =
-    process.env.HOST_PULUMI_ORG ?? process.env.HOST_PULUMI_ORGANIZATION;
+  const hostOrg = process.env.HOST_PULUMI_ORG ?? process.env.HOST_PULUMI_ORGANIZATION;
 
   if (hostOrg) {
     DEFAULT_HOST_PULUMI_ORG = hostOrg;
@@ -113,18 +125,14 @@ const getProjectNamespace = (): string => {
     } catch {}
   }
 
-  throw new Error(
-    "PULUMI_PROJECT not set and could not read name from package.json",
-  );
+  throw new Error("PULUMI_PROJECT not set and could not read name from package.json");
 };
 
 /** Resolve the stage from the explicit argument or PULUMI_STACK. */
 const getStage = (stageArg?: string): string => {
   const stage = stageArg ?? process.env.PULUMI_STACK;
   if (!stage) {
-    throw new Error(
-      "Stage must be provided as argument or via PULUMI_STACK env var",
-    );
+    throw new Error("Stage must be provided as argument or via PULUMI_STACK env var");
   }
   return stage;
 };
@@ -176,9 +184,7 @@ export class CloudConfigV2 {
 
     this.organization = getEffectivePulumiOrganization();
     if (!this.organization) {
-      throw new Error(
-        "Could not determine Pulumi organization for CloudConfig",
-      );
+      throw new Error("Could not determine Pulumi organization for CloudConfig");
     }
 
     this.stage = getStage();
@@ -189,12 +195,7 @@ export class CloudConfigV2 {
     if (CloudConfigV2.configCache.has(escPath)) {
       this.config = CloudConfigV2.configCache.get(escPath)!;
     } else {
-      this.config =
-        JSON.parse(
-          pulumiCloudExecSyncShell(
-            `pulumi esc get ${escPath} --show-secrets --value json`,
-          ),
-        ).pulumiConfig ?? {};
+      this.config = JSON.parse(pulumiCloudExecSyncShell(`pulumi esc get ${escPath} --show-secrets --value json`)).pulumiConfig ?? {};
       CloudConfigV2.configCache.set(escPath, this.config);
     }
   }
@@ -215,8 +216,7 @@ export class CloudConfigV2 {
    */
   require(key: string): string {
     const value = this.get(key);
-    if (value === undefined)
-      throw new Error(`Missing required config '${key}'`);
+    if (value === undefined) throw new Error(`Missing required config '${key}'`);
     return value;
   }
 
@@ -307,14 +307,23 @@ export class CloudConfigV2 {
  * // Access outputs
  * const apiUrl = appStack.requireOutput<string>("apiUrl");
  * const dbConfig = dbStack.getOutput<DbConfig>("config");
+ *
+ * // With Zod schema validation
+ * const AppSchema = z.object({
+ *   apiUrl: z.string(),
+ *   apiKey: z.string(),
+ * });
+ * const typedStack = new CloudStackReferenceV2("my-app", { schema: AppSchema });
+ * const url = typedStack.requireOutput("apiUrl"); // Type: string
  * ```
  */
-export class CloudStackReferenceV2 {
+export class CloudStackReferenceV2<TSchema extends z.ZodTypeAny | undefined = undefined> {
   private static stackCache = new Map<string, any>();
   readonly organization: string;
   readonly stage: string;
   readonly name: string;
   readonly outputs: any;
+  private readonly schema?: TSchema;
 
   /**
    * Creates a new CloudStackReferenceV2 instance.
@@ -324,9 +333,15 @@ export class CloudStackReferenceV2 {
    * @param options - Configuration options for the reference.
    * @param options.stage - The stage to target. Required if using a short stack name, unless
    *                        implied by the current environment (e.g., PULUMI_STACK).
+   * @param options.schema - Optional Zod schema to validate outputs against. When provided,
+   *                         the outputs are validated during construction and getOutput/requireOutput
+   *                         return types are inferred from the schema. Requires the 'zod' package
+   *                         to be installed.
    * @throws {Error} If the Pulumi organization cannot be determined or if required arguments are missing.
+   * @throws {Error} If a schema is provided but the 'zod' package is not installed.
+   * @throws {z.ZodError} If schema validation fails when a schema is provided.
    */
-  constructor(name: string, { stage }: { stage?: string } = {}) {
+  constructor(name: string, { stage, schema }: { stage?: string; schema?: TSchema } = {}) {
     const { VITEST, PULUMI_WORK_DIR } = process.env;
 
     if (!VITEST && !PULUMI_WORK_DIR) {
@@ -336,28 +351,31 @@ export class CloudStackReferenceV2 {
     this.organization = getEffectivePulumiOrganization();
 
     if (!this.organization) {
-      throw new Error(
-        "Could not determine Pulumi organization for StackReference",
-      );
+      throw new Error("Could not determine Pulumi organization for StackReference");
     } else if (!name.includes("/") && !stage) {
-      throw new Error(
-        "Stage must be provided as argument or via PULUMI_STACK env var when using short stack name",
-      );
+      throw new Error("Stage must be provided as argument or via PULUMI_STACK env var when using short stack name");
     }
     this.stage = getStage(stage);
     this.name = name.includes("/") ? name : `${name}/${this.stage}`;
+
+    // Check if zod is available when schema is provided
+    if (schema) {
+      requireZod();
+    }
+    this.schema = schema;
 
     const stackId = `${this.organization}/${this.name}`;
 
     if (CloudStackReferenceV2.stackCache.has(stackId)) {
       this.outputs = CloudStackReferenceV2.stackCache.get(stackId);
     } else {
-      this.outputs = JSON.parse(
-        pulumiCloudExecSyncShell(
-          `pulumi stack output --stack ${stackId} --json --show-secrets`,
-        ),
-      );
+      this.outputs = JSON.parse(pulumiCloudExecSyncShell(`pulumi stack output --stack ${stackId} --json --show-secrets`));
       CloudStackReferenceV2.stackCache.set(stackId, this.outputs);
+    }
+
+    // Validate outputs against schema if provided
+    if (this.schema) {
+      this.schema.parse(this.outputs);
     }
   }
 
@@ -368,8 +386,12 @@ export class CloudStackReferenceV2 {
    * @returns The output value typed as T, or undefined if the output does not exist.
    * @template T - The expected type of the output value. Defaults to `any`.
    */
-  getOutput<T = any>(key: string): T | undefined {
-    return this.outputs[key] as T | undefined;
+  getOutput<T = any>(key: string): T | undefined;
+  getOutput<K extends keyof z.infer<NonNullable<TSchema>>>(
+    key: K,
+  ): TSchema extends z.ZodTypeAny ? z.infer<NonNullable<TSchema>>[K] | undefined : any;
+  getOutput(key: string): any {
+    return this.outputs[key];
   }
 
   /**
@@ -380,12 +402,13 @@ export class CloudStackReferenceV2 {
    * @throws {Error} If the output with the specified key does not exist.
    * @template T - The expected type of the output value. Defaults to `any`.
    */
-  requireOutput<T = any>(key: string): T {
-    const v = this.getOutput<T>(key);
-    if (v === undefined)
-      throw new Error(
-        `Missing required output '${key}' from stack '${this.name}'`,
-      );
+  requireOutput<T = any>(key: string): T;
+  requireOutput<K extends keyof z.infer<NonNullable<TSchema>>>(
+    key: K,
+  ): TSchema extends z.ZodTypeAny ? z.infer<NonNullable<TSchema>>[K] : any;
+  requireOutput(key: string): any {
+    const v = this.outputs[key];
+    if (v === undefined) throw new Error(`Missing required output '${key}' from stack '${this.name}'`);
     return v;
   }
 }
