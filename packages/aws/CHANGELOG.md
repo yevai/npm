@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.15
+
+### Patch Changes
+
+- 3c5795c: add optional zod schema runtime validation
+
 ## 0.0.14
 
 ### Patch Changes
