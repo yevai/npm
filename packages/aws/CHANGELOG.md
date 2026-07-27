@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.16
+
+### Patch Changes
+
+- f08077d: CloudStackReferenceV2 typescript inference improvements
+
 ## 0.0.15
 
 ### Patch Changes
