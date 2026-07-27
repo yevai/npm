@@ -386,10 +386,10 @@ export class CloudStackReferenceV2<TSchema extends z.ZodTypeAny | undefined = un
    * @returns The output value typed as T, or undefined if the output does not exist.
    * @template T - The expected type of the output value. Defaults to `any`.
    */
-  getOutput<T = any>(key: string): T | undefined;
   getOutput<K extends keyof z.infer<NonNullable<TSchema>>>(
     key: K,
   ): TSchema extends z.ZodTypeAny ? z.infer<NonNullable<TSchema>>[K] | undefined : any;
+  getOutput<T = any>(key: string): T | undefined;
   getOutput(key: string): any {
     return this.outputs[key];
   }
@@ -402,10 +402,10 @@ export class CloudStackReferenceV2<TSchema extends z.ZodTypeAny | undefined = un
    * @throws {Error} If the output with the specified key does not exist.
    * @template T - The expected type of the output value. Defaults to `any`.
    */
-  requireOutput<T = any>(key: string): T;
   requireOutput<K extends keyof z.infer<NonNullable<TSchema>>>(
     key: K,
   ): TSchema extends z.ZodTypeAny ? z.infer<NonNullable<TSchema>>[K] : any;
+  requireOutput<T = any>(key: string): T;
   requireOutput(key: string): any {
     const v = this.outputs[key];
     if (v === undefined) throw new Error(`Missing required output '${key}' from stack '${this.name}'`);
