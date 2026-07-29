@@ -1,5 +1,11 @@
 # @yai/aws
 
+## 0.0.17
+
+### Patch Changes
+
+- a980664: add constructor overloading for CloudConfigV2
+
 ## 0.0.16
 
 ### Patch Changes
