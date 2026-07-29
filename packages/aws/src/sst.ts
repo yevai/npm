@@ -175,20 +175,22 @@ export class CloudConfigV2 {
    * @throws {Error} If the organization, stage, or project cannot be determined,
    *                 or if PULUMI_WORK_DIR is unset outside of tests.
    */
-  constructor() {
+  constructor(
+    args: { organization?: string; stage?: string; project?: string } = {},
+  ) {
     const { VITEST, PULUMI_WORK_DIR } = process.env;
 
     if (!VITEST && !PULUMI_WORK_DIR) {
       throw new Error("PULUMI_WORK_DIR environment variable is required");
     }
 
-    this.organization = getEffectivePulumiOrganization();
+    this.organization = args.organization ?? getEffectivePulumiOrganization();
     if (!this.organization) {
       throw new Error("Could not determine Pulumi organization for CloudConfig");
     }
 
-    this.stage = getStage();
-    this.project = getProjectNamespace();
+    this.stage = args.stage ?? getStage();
+    this.project = args.project ?? getProjectNamespace();
 
     const escPath = `${this.organization}/${this.project}/${this.stage}`;
 
